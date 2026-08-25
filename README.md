@@ -1,103 +1,123 @@
 <h1 align="center">Payment Name</h1>
 
 <p align="center">
-  <em>Get paid by name instead of by a long random address.</em>
+  <em>Get paid in bitcoin by name, instead of by a long random address.</em><br>
+  <sub>A service for <a href="https://start9.com">StartOS</a>, the operating system for self-hosted servers.</sub>
 </p>
 
 <p align="center">
+  <a href="https://start9.com"><img src="https://img.shields.io/badge/for-StartOS-5b3df5?style=flat-square" alt="for StartOS"></a>
   <a href="https://github.com/bitcoin/bips/blob/master/bip-0353.mediawiki"><img src="https://img.shields.io/badge/BIP--353-payment%20names-f7931a?style=flat-square" alt="BIP-353"></a>
   <a href="https://github.com/bitcoin/bips/blob/master/bip-0352.mediawiki"><img src="https://img.shields.io/badge/BIP--352-silent%20payments-f7931a?style=flat-square" alt="BIP-352"></a>
-  <a href="https://start9.com"><img src="https://img.shields.io/badge/StartOS-0.4.x-blue?style=flat-square" alt="StartOS"></a>
-  <a href="#no-dependencies-deliberately"><img src="https://img.shields.io/badge/dependencies-none-brightgreen?style=flat-square" alt="no dependencies"></a>
-  <a href="#the-watchdog-is-the-point"><img src="https://img.shields.io/badge/watchdog-two%20resolvers-brightgreen?style=flat-square" alt="watchdog"></a>
+  <a href="#it-needs-nothing-else"><img src="https://img.shields.io/badge/dependencies-none-brightgreen?style=flat-square" alt="no dependencies"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT"></a>
 </p>
 
 ---
 
-Publish a name like `alice@example.com` that anyone can pay from their wallet, and that resolves
-to your silent payment address. Then keep an eye on it, because a payment name is exactly the
-kind of thing nobody ever re-checks.
+## What this is
 
-## Why a name at all
+Instead of giving people a bitcoin address like this:
 
-A normal bitcoin address is a public account statement. Put one on your website or your invoices
-and every person who pays you can read every other payment you ever received to it, and your
-balance, forever. That is why almost nobody publishes one.
+```
+bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
+```
 
-A [BIP-352](https://github.com/bitcoin/bips/blob/master/bip-0352.mediawiki) silent payment address
-fixes that: each payer's wallet derives a fresh, unlinkable address from it, so the same address
-is safe to publish for life. Which finally makes it worth giving that address a name a human can
-read and type.
+you give them a name like this:
 
-[BIP-353](https://github.com/bitcoin/bips/blob/master/bip-0353.mediawiki) is how that name is
-published: one DNSSEC-signed TXT record at `alice.user._bitcoin-payment.example.com`, containing
-a `bitcoin:` URI. This package writes that record for you and then watches it.
+```
+alice@example.com
+```
 
-Wallets already understand it. Sparrow resolves these names and validates the DNSSEC chain itself
-rather than trusting a resolver.
+They type it into their wallet and pay you. That is the whole idea.
 
-## No dependencies, deliberately
+You install this on your own [StartOS](https://start9.com) server, paste in your address, and pick
+a name. It publishes the name for you and then keeps an eye on it.
 
-No Bitcoin node. No Electrum server. No scanning server. It holds no keys.
+## Why bother
 
-Silent payments has two independent halves:
+**A bitcoin address is a public record.** Put one on your website or your invoices, and every
+person who pays you can look up every other payment you have ever received to it. And your balance.
+Forever. That is why most people never publish one, and instead send a fresh address to each person
+by hand.
 
-- **Receiving** is your wallet deriving an address and other people paying it. No server involved
-  at any point.
-- **Finding** those payments afterwards needs a scanner, such as
-  [Frigate](https://github.com/sparrowwallet/frigate).
+**Silent payments fix that.** It is a newer kind of bitcoin address, where each person paying you
+works out a fresh, unrelated address of their own. Two people who pay you cannot tell they paid the
+same person, and neither can anyone else looking at the blockchain. So you can safely publish one
+address and keep it for life.
+([BIP-352](https://github.com/bitcoin/bips/blob/master/bip-0352.mediawiki), if you want the spec.)
 
-This package is the first half only. Tying it to one scanning server would exclude everyone who
-scans another way, or who only ever receives.
+**The catch is that nobody can read one out loud.** A silent payment address is 116 characters. It
+solved the privacy problem and created a usability one.
 
-That said, **anyone publishing a payment name should run their own scanner.** The silent payments
-protocol hands your *scan private key* to whichever server your wallet points at. It cannot spend
-your coins. It reveals every payment you will ever receive.
+**This closes that gap.** It publishes a name that points at your address, using a bitcoin standard
+called [BIP-353](https://github.com/bitcoin/bips/blob/master/bip-0353.mediawiki). Wallets already
+understand it: Sparrow and Cake Wallet both resolve these names today.
 
-## The watchdog is the point
+## What you need
 
-Once published, a silent payment address never rotates, so nobody re-checks it. A payment name is
-a set-and-forget pointer, which is exactly what makes it worth attacking.
+- A **[StartOS](https://start9.com) server**. That is a Start9 box, or StartOS installed on your
+  own hardware.
+- A **silent payment address**, the `sp1...` string. Your wallet makes it, not this. In Sparrow,
+  create a wallet with policy type *Single Signature SP* and copy it from the Receive tab.
+- Either a **domain you control** with DNSSEC turned on, or use a hosted name.
 
-If whoever controls the domain repoints your name at their own address, every payment from that
-moment on goes to them. Every signature still validates, so no wallet complains. And because
-silent payments outputs are unlinkable, you cannot follow the money to see where it went.
+## It needs nothing else
 
-BIP-353 has **no Security Considerations section**, and nothing in the ecosystem detects this.
-Nostr's NIP-05 has the rule that would prevent it, *"clients must always follow public keys, not
-addresses"*. BIP-353 has no equivalent, and it caps caching at the record's TTL, so a repoint
-reaches every payer within minutes.
+No bitcoin node. No Electrum server. No scanning server. It holds none of your keys and cannot
+touch your money.
 
-So the health check re-resolves your record and **fails loudly** when it stops matching. On your
-own domain that is a nicety. On someone else's it is the only protection there is.
+That is worth explaining, because it surprises people. Getting paid privately has two separate
+halves:
+
+1. **Receiving.** Your wallet makes an address, people pay it, coins arrive. **No server is
+   involved at any point.** This package is about this half.
+2. **Finding** those payments afterwards. That needs something to scan the blockchain for you,
+   such as [Frigate](https://github.com/sparrowwallet/frigate).
+
+Tying this to one particular scanner would shut out everyone who scans a different way.
+
+**That said, run your own scanner.** The silent payments protocol hands your *scan key* to whichever
+server your wallet is pointed at. That key cannot spend your coins. It does reveal every payment
+you will ever receive.
+
+## It watches your name, and that is the point
+
+Once published, a payment name is the kind of thing nobody ever checks again. Which is exactly what
+makes it worth attacking.
+
+If whoever controls the domain quietly points your name at their own address, every payment from
+then on goes to them. Every signature still checks out, so no wallet warns anybody. And because
+silent payments are unlinkable, you could not follow the money to see where it went.
+
+The bitcoin standard has **no security section at all**, and nothing else in the ecosystem notices
+this. So this package re-checks your published name and **turns red** if it stops pointing at you.
+
+On your own domain that is a nicety. On someone else's domain it is the only protection there is.
 
 ### It asks two resolvers, on purpose
 
-A check whose only job is to cry wolf must not cry wolf.
+A warning light that goes off for no reason is worse than none.
 
-Turning DNSSEC on flips a zone from *unsigned, trust it* to *signed, verify it*, and resolvers
-holding the old state hard-fail until their caches expire. That is correct of them, and during
-that window one resolver will call a perfectly good name unpayable while another is already happy.
+Turning on DNSSEC flips a domain from *unsigned* to *signed*, and DNS resolvers holding the old
+answer refuse the name until their caches expire. During that window one resolver calls a perfectly
+good name broken while another is already happy.
 
-This queries **two** resolvers, treats a non-zero DNS status as *refused to answer* rather than
-*no record*, and reports a problem only when every resolver that answered agrees.
+So it asks **two**, treats "the resolver refused to answer" as different from "there is no record",
+and only reports a problem when everyone who answered agrees.
 
-It reports on: a missing record, a record that no longer matches, DNSSEC not validating, and more
-than one `bitcoin:` record at the name. That last one is an outage rather than a warning, because
-the spec says a wallet seeing several must refuse them all.
+It reports: a missing record, a record pointing somewhere else, DNSSEC not working, and more than
+one payment record on the same name. That last one means nobody can pay you at all, because the
+standard tells wallets to refuse a name carrying several.
 
-### Verified against live records
+### Checked against real names in the wild
 
 | Name | Result |
 |---|---|
-| `conorokus@twelve.cash` | accepted; DNSSEC-signed, 116-character `sp1` address |
+| `conorokus@twelve.cash` | accepted; properly signed, valid address |
 | `satoshi@twelve.cash` | flagged unpayable; **5 conflicting records** |
-| `matt@mattcorallo.com` | accepted; on-chain plus BOLT 12 |
+| `matt@mattcorallo.com` | accepted |
 | a name that does not exist | handled |
-
-The `satoshi` case is live breakage at the only public provider today, caused by having no way to
-update a name once it is claimed.
 
 ## Two modes
 
@@ -108,17 +128,20 @@ update a name once it is claimed.
 
 ## Using it
 
-Install, then open **Actions & Config → Payment Name**.
+Install it, then open **Actions & Config → Payment Name** on your server.
 
-You need your silent payment address, the `sp1...` string from your wallet. In Sparrow that is a
-wallet with Policy Type **Single Signature SP**, and the address is on the Receive tab. Nothing
-here can derive it for you: it comes from keys that never leave your wallet.
+Choose whether the name goes on your own domain or a hosted one, paste your `sp1...` address, pick
+a name, and save. If you chose your own domain, it hands you the exact DNS record to add. Then the
+health check watches it from there on.
 
-## Building
+## Building it yourself
 
 ```
 ./build.sh x86
 ```
+
+That produces the `.s9pk` you can sideload onto StartOS. Everything below is why the script exists
+rather than a plain `make`, and is only interesting if you are changing the package.
 
 `start-cli` requires a packaging workspace in this repo's **parent** directory and fills it with a
 74 MB clone of the Start9 monorepo, a build key and its own `AGENTS.md`. It also resolves symlinks,
@@ -137,11 +160,19 @@ Three environment quirks the script handles, all found the hard way:
 `make` also derives its ingredient list before it builds the TypeScript bundle, so the script
 bundles first and runs make twice.
 
-## Notes
+## How it works inside
 
 The container runs `sleep infinity`. All the work happens in a StartOS health check, which executes
 in the OS's JavaScript runtime rather than inside the container. The image exists only to give the
 service something to be.
+
+## Related
+
+- **[silentpayments.net](https://silentpayments.net)** hands out hosted names, if you do not own a
+  domain.
+- **[Frigate](https://github.com/sparrowwallet/frigate)** is the scanner that finds the payments
+  once people start sending them.
+- **[StartOS](https://start9.com)** is the operating system this runs on.
 
 ## Licence
 
