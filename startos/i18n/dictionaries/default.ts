@@ -14,7 +14,7 @@ const dict = {
   Configuration: 16,
   None: 17,
   'On a domain I control': 18,
-  'Hosted for me on silentpayments.io': 19,
+  'Hosted for me on silentpayments.net': 19,
   'Your silent payment address': 20,
   'Copy this from your wallet. It starts with sp1. This package cannot work it out for you: it is derived from your wallet keys, which never leave your wallet.': 21,
   Name: 22,
@@ -32,7 +32,7 @@ const dict = {
   'The DNS name to create, of type TXT.': 34,
   'Record value': 35,
   'The exact contents of that TXT record.': 36,
-  'Hosted names on silentpayments.io are not available yet. Your settings are saved, and the name will be claimed automatically once the service is live. In the meantime you can publish on a domain you control, which nobody else can repoint.': 37,
+  'Your settings are saved. Claiming the name automatically is not wired up in this version, so for now go to silentpayments.net and claim it there with the address above. Publishing on a domain you control is still better, because nobody else can repoint it.': 37,
 } as const
 
 export type LangDict = Partial<Record<keyof typeof dict, string>>

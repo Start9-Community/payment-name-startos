@@ -123,8 +123,10 @@ standard tells wallets to refuse a name carrying several.
 
 - **On a domain you control.** The action returns the exact TXT record to publish. Nobody but you
   can repoint it. Your domain needs DNSSEC, or wallets will refuse the name.
-- **Hosted.** Stubbed. The setting saves and says so plainly; the service behind it does not exist
-  yet.
+- **Hosted, on [silentpayments.net](https://silentpayments.net).** For people who do not own a
+  domain. Free, no account. The service is live; this version of the package saves your choice but
+  does not yet claim the name for you, so claim it on the site and paste the same address. Automatic
+  claiming is the next thing to land.
 
 ## Using it
 

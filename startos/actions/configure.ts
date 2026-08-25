@@ -13,7 +13,7 @@ const { InputSpec, Value } = sdk
  * The domain this package offers as the easy option. Users who want nobody
  * else in the loop should pick "my own domain" instead.
  */
-export const HOSTED_DOMAIN = 'silentpayments.io'
+export const HOSTED_DOMAIN = 'silentpayments.net'
 
 const inputSpec = InputSpec.of({
   mode: Value.select({
@@ -25,7 +25,7 @@ const inputSpec = InputSpec.of({
     values: {
       off: i18n('None'),
       own: i18n('On a domain I control'),
-      hosted: i18n('Hosted for me on silentpayments.io'),
+      hosted: i18n('Hosted for me on silentpayments.net'),
     },
   }),
   address: Value.text({
@@ -172,7 +172,7 @@ export const configure = sdk.Action.withInput(
       version: '1',
       title: i18n('Payment Name'),
       message: i18n(
-        'Hosted names on silentpayments.io are not available yet. Your settings are saved, and the name will be claimed automatically once the service is live. In the meantime you can publish on a domain you control, which nobody else can repoint.',
+        'Your settings are saved. Claiming the name automatically is not wired up in this version, so for now go to silentpayments.net and claim it there with the address above. Publishing on a domain you control is still better, because nobody else can repoint it.',
       ),
       result: null,
     }
