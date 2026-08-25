@@ -7,7 +7,7 @@
 <p align="center">
   <a href="https://github.com/bitcoin/bips/blob/master/bip-0353.mediawiki"><img src="https://img.shields.io/badge/BIP--353-payment%20names-f7931a?style=flat-square" alt="BIP-353"></a>
   <a href="https://github.com/bitcoin/bips/blob/master/bip-0352.mediawiki"><img src="https://img.shields.io/badge/BIP--352-silent%20payments-f7931a?style=flat-square" alt="BIP-352"></a>
-  <a href="https://start9.com"><img src="https://img.shields.io/badge/StartOS-0.4.0-blue?style=flat-square" alt="StartOS 0.4.0"></a>
+  <a href="https://start9.com"><img src="https://img.shields.io/badge/StartOS-0.4.x-blue?style=flat-square" alt="StartOS"></a>
   <a href="#no-dependencies-deliberately"><img src="https://img.shields.io/badge/dependencies-none-brightgreen?style=flat-square" alt="no dependencies"></a>
   <a href="#the-watchdog-is-the-point"><img src="https://img.shields.io/badge/watchdog-two%20resolvers-brightgreen?style=flat-square" alt="watchdog"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT"></a>
