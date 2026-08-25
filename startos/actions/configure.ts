@@ -8,7 +8,6 @@ import {
 import { validate } from '../checker'
 import { hostedKeyJson } from '../file-models/hosted-key.json'
 import {
-  checkAvailable,
   claim,
   decodeKey,
   encodeKey,
@@ -186,17 +185,30 @@ export const configure = sdk.Action.withInput(
     const key = decodeKey(secretKey)
 
     try {
-      // Ask first, so the common failure is a clear message rather than a
-      // rejected claim after the user thinks they are done.
-      const free = await checkAvailable(username)
-      if (!free.available)
-        throw new HostedError(free.reason ?? 'That name is not available.')
-
-      const already = await paymentNameJson.read().once()
-      const result =
-        already?.mode === 'hosted' && already.username === username
-          ? await updateAddress(key, username, address)
-          : await claim(key, username, address)
+      // Deliberately does not consult local state to decide claim vs update.
+      // An earlier version read the settings back after saving them, so it
+      // always saw its own write, always chose update, and a first claim hit
+      // a name that did not exist yet. The service is the only thing that
+      // actually knows, so ask it: claim, and fall back to update only if the
+      // name is already there.
+      let result
+      try {
+        result = await claim(key, username, address)
+      } catch (e) {
+        if (!(e instanceof HostedError) || !/already taken|already exists/i.test(e.message))
+          throw e
+        try {
+          result = await updateAddress(key, username, address)
+        } catch (inner) {
+          throw new HostedError(
+            inner instanceof HostedError && /not the key/i.test(inner.message)
+              ? `${username}@silentpayments.net is taken by someone else, or by a previous install of this package whose key is gone. Pick another name.`
+              : inner instanceof Error
+                ? inner.message
+                : String(inner),
+          )
+        }
+      }
 
       return {
         version: '1',
