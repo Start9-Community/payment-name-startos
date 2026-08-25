@@ -124,9 +124,14 @@ standard tells wallets to refuse a name carrying several.
 - **On a domain you control.** The action returns the exact TXT record to publish. Nobody but you
   can repoint it. Your domain needs DNSSEC, or wallets will refuse the name.
 - **Hosted, on [silentpayments.net](https://silentpayments.net).** For people who do not own a
-  domain. Free, no account. The service is live; this version of the package saves your choice but
-  does not yet claim the name for you, so claim it on the site and paste the same address. Automatic
-  claiming is the next thing to land.
+  domain. Free, no account, and this claims it for you: type a name, press save, done. The service
+  is a third party, so it could in principle repoint your name; that is precisely what the watchdog
+  above is for.
+
+  There is no password to keep. On first use the package generates a key, stores it in its own
+  volume, and signs each request with it, so the name is bound to a key that never leaves your
+  server. Losing that volume without a backup means losing the ability to change or release the
+  name.
 
 ## Using it
 

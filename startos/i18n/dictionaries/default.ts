@@ -32,7 +32,7 @@ const dict = {
   'The DNS name to create, of type TXT.': 34,
   'Record value': 35,
   'The exact contents of that TXT record.': 36,
-  'Your settings are saved. Claiming the name automatically is not wired up in this version, so for now go to silentpayments.net and claim it there with the address above. Publishing on a domain you control is still better, because nobody else can repoint it.': 37,
+  'Your payment name is live. Nothing else to do.': 37,
 } as const
 
 export type LangDict = Partial<Record<keyof typeof dict, string>>

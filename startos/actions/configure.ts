@@ -6,6 +6,16 @@ import {
   recordValue,
 } from '../file-models/payment-name.json'
 import { validate } from '../checker'
+import { hostedKeyJson } from '../file-models/hosted-key.json'
+import {
+  checkAvailable,
+  claim,
+  decodeKey,
+  encodeKey,
+  HostedError,
+  updateAddress,
+} from '../hosted'
+import { generateSecretKey } from 'nostr-tools/pure'
 
 const { InputSpec, Value } = sdk
 
@@ -165,16 +175,56 @@ export const configure = sdk.Action.withInput(
       }
     }
 
-    // Hosted registration is not wired up yet: the service does not exist. The
-    // config is stored so the health check can already watch the record, and
-    // so switching this on later needs no reconfiguration.
-    return {
-      version: '1',
-      title: i18n('Payment Name'),
-      message: i18n(
-        'Your settings are saved. Claiming the name automatically is not wired up in this version, so for now go to silentpayments.net and claim it there with the address above. Publishing on a domain you control is still better, because nobody else can repoint it.',
-      ),
-      result: null,
+    // Hosted: claim the name on the user's behalf by signing the request with
+    // a key held here. Nothing is copied by hand and no password exists.
+    const store = await hostedKeyJson.read().once()
+    let secretKey = store?.secretKey
+    if (!secretKey) {
+      secretKey = encodeKey(generateSecretKey())
+      await hostedKeyJson.merge(effects, { secretKey })
+    }
+    const key = decodeKey(secretKey)
+
+    try {
+      // Ask first, so the common failure is a clear message rather than a
+      // rejected claim after the user thinks they are done.
+      const free = await checkAvailable(username)
+      if (!free.available)
+        throw new HostedError(free.reason ?? 'That name is not available.')
+
+      const already = await paymentNameJson.read().once()
+      const result =
+        already?.mode === 'hosted' && already.username === username
+          ? await updateAddress(key, username, address)
+          : await claim(key, username, address)
+
+      return {
+        version: '1',
+        title: i18n('Payment Name'),
+        message: i18n('Your payment name is live. Nothing else to do.'),
+        result: {
+          type: 'group',
+          value: [
+            {
+              name: i18n('Your payment name'),
+              description: i18n('Give this to anyone who wants to pay you.'),
+              type: 'single',
+              value: result.name,
+              copyable: true,
+              qr: true,
+              masked: false,
+            },
+          ],
+        },
+      }
+    } catch (e) {
+      // The settings are already saved above, so the user can retry without
+      // retyping. Say what failed rather than swallowing it.
+      throw new Error(
+        e instanceof HostedError
+          ? e.message
+          : `Could not claim that name: ${e instanceof Error ? e.message : String(e)}`,
+      )
     }
   },
 )
