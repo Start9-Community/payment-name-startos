@@ -284,6 +284,11 @@ export const configure = sdk.Action.withInput(
       try {
         result = await updateAddress(key, username, address)
       } catch (inner) {
+        // 404 means the name is not there to update, so the claim's own refusal
+        // was the real reason and this fallback never had anything to say. Show
+        // that instead: "No such name." is the least true thing the user could
+        // be told about a name the service has just refused to issue.
+        if (inner instanceof HostedError && inner.status === 404) throw e
         throw new HostedError(
           inner instanceof HostedError && inner.status === 403
             ? i18n(
