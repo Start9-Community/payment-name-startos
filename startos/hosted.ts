@@ -1,75 +1,44 @@
-import { finalizeEvent, getPublicKey } from 'nostr-tools/pure'
-import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
-import { sha256 } from '@noble/hashes/sha2'
+import { finalizeEvent } from 'nostr-tools/pure'
+import { getToken } from 'nostr-tools/nip98'
+import { bytesToHex, hexToBytes } from 'nostr-tools/utils'
+import { i18n } from './i18n'
 
 /**
- * Claiming a name on a hosted domain, on the user's behalf.
- *
- * The alternative was a password the service hands out once and the user has
- * to keep safe. That is fine for a person filling in a form and useless here:
- * this box would have to store it anyway, and the user would have to carry it
- * between machines.
- *
- * So instead this holds a key, and proves who it is by signing each request.
- * Nothing to write down, nothing to lose, and the name is bound to a key that
- * never leaves the volume.
+ * Claiming a name on the hosted domain. The alternative — a password handed out
+ * once — would still have to be stored on this box, so instead a key generated
+ * here signs each request under NIP-98 and never leaves the volume.
  */
 
-const KIND = 27235
+/** The domain this package offers as the easy option. */
+export const HOSTED_DOMAIN = 'silentpayments.net'
 
 /** Where the hosted service lives. Also the origin every signature covers. */
-export const HOSTED_ORIGIN = 'https://silentpayments.net'
+export const HOSTED_ORIGIN = `https://${HOSTED_DOMAIN}`
 
-export type ClaimResult = {
-  name: string
-  address: string
-  record?: { name: string; type: string; value: string }
+export type ClaimResult = { name: string }
+
+export class HostedError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+  ) {
+    super(message)
+  }
 }
 
-export class HostedError extends Error {}
+export const encodeKey = (k: Uint8Array) => bytesToHex(k)
+export const decodeKey = (s: string) => hexToBytes(s)
 
-/**
- * Sign one request under NIP-98.
- *
- * The `u` tag must be the exact absolute URL the server will compare against,
- * query string included, and the payload tag must hash the bytes actually sent
- * rather than a re-serialised copy of the object. Both are checked strictly at
- * the other end, so both are built from the same values used to send.
- */
-function authHeader(
-  secretKey: Uint8Array,
-  method: string,
-  url: string,
-  body: string | null,
-): string {
-  const tags: string[][] = [
-    ['u', url],
-    ['method', method],
-  ]
-  if (body !== null)
-    tags.push(['payload', bytesToHex(sha256(new TextEncoder().encode(body)))])
-
-  const event = finalizeEvent(
-    {
-      kind: KIND,
-      created_at: Math.floor(Date.now() / 1000),
-      tags,
-      content: '',
-    },
-    secretKey,
-  )
-
-  return `Nostr ${Buffer.from(JSON.stringify(event)).toString('base64')}`
-}
-
-async function call(
+async function call<T>(
   secretKey: Uint8Array,
   method: string,
   path: string,
-  payload?: unknown,
-): Promise<any> {
+  payload?: Record<string, string>,
+): Promise<T> {
   const url = HOSTED_ORIGIN + path
-  const body = payload === undefined ? null : JSON.stringify(payload)
+  // getToken hashes JSON.stringify(payload), so the body must be that same
+  // string rather than a re-serialised copy.
+  const body = payload === undefined ? undefined : JSON.stringify(payload)
 
   let res: Response
   try {
@@ -77,51 +46,55 @@ async function call(
       method,
       headers: {
         'content-type': 'application/json',
-        authorization: authHeader(secretKey, method, url, body),
+        authorization: await getToken(
+          url,
+          method,
+          (e) => finalizeEvent(e, secretKey),
+          true,
+          payload,
+        ),
       },
-      body: body ?? undefined,
+      body,
     })
   } catch (e) {
     throw new HostedError(
-      `Could not reach ${HOSTED_ORIGIN}. Nothing was changed. ${e instanceof Error ? e.message : ''}`.trim(),
+      `${i18n('Could not reach ${origin}. Nothing was changed.', {
+        origin: HOSTED_ORIGIN,
+      })} ${e instanceof Error ? e.message : ''}`.trim(),
     )
   }
 
-  let json: any
+  let json: unknown
   try {
     json = await res.json()
   } catch {
-    throw new HostedError(`${HOSTED_ORIGIN} returned something unreadable.`)
+    throw new HostedError(
+      i18n('${origin} returned something unreadable.', {
+        origin: HOSTED_ORIGIN,
+      }),
+    )
   }
 
-  if (!res.ok) throw new HostedError(json?.error ?? `Request failed (${res.status})`)
-  return json
-}
-
-export const pubkeyOf = (secretKey: Uint8Array) => getPublicKey(secretKey)
-
-export const encodeKey = (k: Uint8Array) => bytesToHex(k)
-export const decodeKey = (s: string) => hexToBytes(s)
-
-/** Is this name free on the hosted domain? */
-export async function checkAvailable(username: string): Promise<{
-  available: boolean
-  reason: string | null
-}> {
-  const res = await fetch(
-    `${HOSTED_ORIGIN}/api/check?name=${encodeURIComponent(username)}`,
-  ).catch(() => null)
-  if (!res || !res.ok)
-    throw new HostedError(`Could not reach ${HOSTED_ORIGIN} to check that name.`)
-  const j = await res.json()
-  return { available: !!j.available, reason: j.reason ?? null }
+  if (!res.ok) {
+    const error = (json as { error?: unknown } | null)?.error
+    throw new HostedError(
+      typeof error === 'string'
+        ? error
+        : i18n('Request failed (${status}).', { status: res.status }),
+      res.status,
+    )
+  }
+  return json as T
 }
 
 export const claim = (k: Uint8Array, username: string, address: string) =>
-  call(k, 'POST', '/api/claim', { username, address }) as Promise<ClaimResult>
+  call<ClaimResult>(k, 'POST', '/api/claim', { username, address })
 
-export const updateAddress = (k: Uint8Array, username: string, address: string) =>
-  call(k, 'PUT', `/api/name/${username}`, { address }) as Promise<ClaimResult>
+export const updateAddress = (
+  k: Uint8Array,
+  username: string,
+  address: string,
+) => call<ClaimResult>(k, 'PUT', `/api/name/${username}`, { address })
 
 export const release = (k: Uint8Array, username: string) =>
-  call(k, 'DELETE', `/api/name/${username}`) as Promise<{ released: string }>
+  call<{ released: string }>(k, 'DELETE', `/api/name/${username}`)

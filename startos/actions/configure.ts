@@ -4,77 +4,136 @@ import {
   paymentNameJson,
   recordName,
   recordValue,
-} from '../file-models/payment-name.json'
-import { validate } from '../checker'
-import { hostedKeyJson } from '../file-models/hosted-key.json'
+  shape,
+} from '../fileModels/payment-name.json'
+import { DOMAIN, SP_ADDRESS, USERNAME, validate } from '../checker'
+import { hostedKeyJson } from '../fileModels/hosted-key.json'
 import {
   claim,
   decodeKey,
   encodeKey,
+  HOSTED_DOMAIN,
   HostedError,
+  release,
   updateAddress,
 } from '../hosted'
 import { generateSecretKey } from 'nostr-tools/pure'
+import { z } from '@start9labs/start-sdk'
 
-const { InputSpec, Value } = sdk
+const { InputSpec, Value, Variants } = sdk
 
-/**
- * The domain this package offers as the easy option. Users who want nobody
- * else in the loop should pick "my own domain" instead.
- */
-export const HOSTED_DOMAIN = 'silentpayments.net'
+const address = Value.text({
+  name: i18n('Your silent payment address'),
+  description: i18n(
+    'Copy this from your wallet. It starts with sp1. This package cannot work it out for you: it is derived from your wallet keys, which never leave your wallet.',
+  ),
+  required: true,
+  default: null,
+  placeholder: 'sp1q...',
+  inputmode: 'text',
+  patterns: [
+    {
+      regex: SP_ADDRESS.source,
+      description: i18n(
+        'Must start with sp1 and be about 116 characters long.',
+      ),
+    },
+  ],
+})
+
+const username = Value.text({
+  name: i18n('Name'),
+  description: i18n('The part before the @.'),
+  required: true,
+  default: null,
+  placeholder: 'alice',
+  inputmode: 'text',
+  patterns: [
+    {
+      regex: USERNAME.source,
+      description: i18n(
+        'Lowercase letters, digits, dot, dash and underscore only.',
+      ),
+    },
+  ],
+})
+
+const domain = Value.text({
+  name: i18n('Domain'),
+  description: i18n(
+    'Your domain must have DNSSEC enabled, or wallets will refuse the name.',
+  ),
+  required: true,
+  default: null,
+  placeholder: 'example.com',
+  inputmode: 'text',
+  patterns: [
+    {
+      regex: DOMAIN.source,
+      description: i18n('A domain name, like example.com.'),
+    },
+  ],
+})
+
+const checkRecord = Value.toggle({
+  name: i18n('Warn me if my payment name changes'),
+  description: i18n(
+    'Re-check the published record and raise a warning if it stops pointing at your address. Worth leaving on, especially for a hosted name: whoever runs the domain could point it somewhere else, and this is what would tell you.',
+  ),
+  default: true,
+})
 
 const inputSpec = InputSpec.of({
-  mode: Value.select({
+  publish: Value.union({
     name: i18n('Payment name'),
     description: i18n(
       'Publish a human-readable payment name, like alice@example.com, that resolves to your silent payment address. Anyone can then pay you by typing that name into their wallet.',
     ),
     default: 'off',
-    values: {
-      off: i18n('None'),
-      own: i18n('On a domain I control'),
-      hosted: i18n('Hosted for me on silentpayments.net'),
-    },
-  }),
-  address: Value.text({
-    name: i18n('Your silent payment address'),
-    description: i18n(
-      'Copy this from your wallet. It starts with sp1. This package cannot work it out for you: it is derived from your wallet keys, which never leave your wallet.',
-    ),
-    required: false,
-    default: null,
-    placeholder: 'sp1q...',
-    inputmode: 'text',
-  }),
-  username: Value.text({
-    name: i18n('Name'),
-    description: i18n(
-      'The part before the @. Lowercase letters, digits, dot, dash and underscore only.',
-    ),
-    required: false,
-    default: null,
-    placeholder: 'alice',
-    inputmode: 'text',
-  }),
-  domain: Value.text({
-    name: i18n('Domain'),
-    description: i18n(
-      'Only used when publishing on a domain you control. Your domain must have DNSSEC enabled, or wallets will refuse the name.',
-    ),
-    required: false,
-    default: null,
-    placeholder: 'example.com',
-    inputmode: 'text',
-  }),
-  checkRecord: Value.toggle({
-    name: i18n('Warn me if my payment name changes'),
-    description: i18n(
-      'Re-check the published record and raise a warning if it stops pointing at your address. Worth leaving on, especially for a hosted name: whoever runs the domain could point it somewhere else, and this is what would tell you.',
-    ),
-    default: true,
+    variants: Variants.of({
+      off: { name: i18n('None'), spec: InputSpec.of({}) },
+      own: {
+        name: i18n('On a domain I control'),
+        spec: InputSpec.of({ address, username, domain, checkRecord }),
+      },
+      hosted: {
+        name: i18n('Hosted for me on silentpayments.net'),
+        spec: InputSpec.of({ address, username, checkRecord }),
+      },
+    }),
   }),
 })
+
+/**
+ * Give up a hosted name this server is no longer publishing, so it does not sit
+ * claimed on a domain nothing here can reach any more.
+ */
+async function releaseStale(
+  prior: z.infer<typeof shape> | null,
+  keep: string | null,
+): Promise<string | null> {
+  if (prior?.mode !== 'hosted' || !prior.username || prior.username === keep)
+    return null
+
+  const secretKey = (await hostedKeyJson.read().once())?.secretKey
+  if (!secretKey) return null
+
+  const name = `${prior.username}@${HOSTED_DOMAIN}`
+  try {
+    await release(decodeKey(secretKey), prior.username)
+    return i18n('Your previous hosted name ${name} has been released.', {
+      name,
+    })
+  } catch (e) {
+    return i18n(
+      'Could not release your previous hosted name ${name}: ${detail}',
+      {
+        name,
+        detail: e instanceof Error ? e.message : String(e),
+      },
+    )
+  }
+}
 
 export const configure = sdk.Action.withInput(
   'payment-name',
@@ -91,54 +150,87 @@ export const configure = sdk.Action.withInput(
   inputSpec,
   async () => {
     const cfg = await paymentNameJson.read().once()
-    return {
-      mode: cfg?.mode ?? 'off',
-      address: cfg?.address ?? null,
-      username: cfg?.username ?? null,
-      domain: cfg?.domain ?? null,
+    // `other` carries the fields across a variant switch, so changing where the
+    // name lives does not make the user paste a 116-character address again.
+    const shared = {
+      address: cfg?.address,
+      username: cfg?.username,
       checkRecord: cfg?.checkRecord ?? true,
+    }
+    const own = { ...shared, domain: cfg?.domain }
+
+    if (cfg?.mode === 'own')
+      return {
+        publish: {
+          selection: 'own' as const,
+          value: own,
+          other: { hosted: shared },
+        },
+      }
+    if (cfg?.mode === 'hosted')
+      return {
+        publish: {
+          selection: 'hosted' as const,
+          value: shared,
+          other: { own },
+        },
+      }
+    return {
+      publish: {
+        selection: 'off' as const,
+        value: {},
+        other: { own, hosted: shared },
+      },
     }
   },
   async ({ effects, input }) => {
-    if (input.mode === 'off') {
+    const prior = await paymentNameJson.read().once()
+    const { publish } = input
+
+    if (publish.selection === 'off') {
+      const note = await releaseStale(prior, null)
       await paymentNameJson.merge(effects, { mode: 'off' })
       return {
         version: '1',
         title: i18n('Payment Name'),
-        message: i18n('Payment name publishing is off.'),
+        message: [i18n('Payment name publishing is off.'), note]
+          .filter(Boolean)
+          .join(' '),
         result: null,
       }
     }
 
-    const domain = input.mode === 'hosted' ? HOSTED_DOMAIN : input.domain
     const check = validate({
-      address: input.address,
-      username: input.username,
-      domain,
+      address: publish.value.address,
+      username: publish.value.username,
+      domain:
+        publish.selection === 'own' ? publish.value.domain : HOSTED_DOMAIN,
     })
     if (!check.ok) throw new Error(check.reason)
+    const { address, username, domain } = check
+    const { checkRecord } = publish.value
 
-    const username = input.username!.trim().toLowerCase()
-    const address = input.address!.trim()
-    const dom = domain!.trim().toLowerCase()
+    if (publish.selection === 'own') {
+      const note = await releaseStale(prior, null)
 
-    await paymentNameJson.merge(effects, {
-      mode: input.mode,
-      address,
-      username,
-      domain: dom,
-      checkRecord: input.checkRecord,
-    })
-
-    if (input.mode === 'own') {
-      // Nothing to call: the user publishes this themselves, which is the
-      // whole point of this mode.
+      await paymentNameJson.merge(effects, {
+        mode: 'own',
+        address,
+        username,
+        domain,
+        checkRecord,
+      })
       return {
         version: '1',
         title: i18n('Publish this DNS record'),
-        message: i18n(
-          'Add this TXT record to your domain, then make sure DNSSEC is enabled. Without DNSSEC, wallets will refuse the name.',
-        ),
+        message: [
+          i18n(
+            'Add this TXT record to your domain, then make sure DNSSEC is enabled. Without DNSSEC, wallets will refuse the name.',
+          ),
+          note,
+        ]
+          .filter(Boolean)
+          .join(' '),
         result: {
           type: 'group',
           value: [
@@ -146,7 +238,7 @@ export const configure = sdk.Action.withInput(
               name: i18n('Your payment name'),
               description: i18n('Give this to anyone who wants to pay you.'),
               type: 'single',
-              value: `${username}@${dom}`,
+              value: `${username}@${domain}`,
               copyable: true,
               qr: true,
               masked: false,
@@ -155,7 +247,7 @@ export const configure = sdk.Action.withInput(
               name: i18n('Record name'),
               description: i18n('The DNS name to create, of type TXT.'),
               type: 'single',
-              value: recordName(username, dom),
+              value: recordName(username, domain),
               copyable: true,
               qr: false,
               masked: false,
@@ -174,8 +266,6 @@ export const configure = sdk.Action.withInput(
       }
     }
 
-    // Hosted: claim the name on the user's behalf by signing the request with
-    // a key held here. Nothing is copied by hand and no password exists.
     const store = await hostedKeyJson.read().once()
     let secretKey = store?.secretKey
     if (!secretKey) {
@@ -184,59 +274,61 @@ export const configure = sdk.Action.withInput(
     }
     const key = decodeKey(secretKey)
 
+    let result
     try {
-      // Deliberately does not consult local state to decide claim vs update.
-      // An earlier version read the settings back after saving them, so it
-      // always saw its own write, always chose update, and a first claim hit
-      // a name that did not exist yet. The service is the only thing that
-      // actually knows, so ask it: claim, and fall back to update only if the
-      // name is already there.
-      let result
-      try {
-        result = await claim(key, username, address)
-      } catch (e) {
-        if (!(e instanceof HostedError) || !/already taken|already exists/i.test(e.message))
-          throw e
-        try {
-          result = await updateAddress(key, username, address)
-        } catch (inner) {
-          throw new HostedError(
-            inner instanceof HostedError && /not the key/i.test(inner.message)
-              ? `${username}@silentpayments.net is taken by someone else, or by a previous install of this package whose key is gone. Pick another name.`
-              : inner instanceof Error
-                ? inner.message
-                : String(inner),
-          )
-        }
-      }
-
-      return {
-        version: '1',
-        title: i18n('Payment Name'),
-        message: i18n('Your payment name is live. Nothing else to do.'),
-        result: {
-          type: 'group',
-          value: [
-            {
-              name: i18n('Your payment name'),
-              description: i18n('Give this to anyone who wants to pay you.'),
-              type: 'single',
-              value: result.name,
-              copyable: true,
-              qr: true,
-              masked: false,
-            },
-          ],
-        },
-      }
+      result = await claim(key, username, address)
     } catch (e) {
-      // The settings are already saved above, so the user can retry without
-      // retyping. Say what failed rather than swallowing it.
-      throw new Error(
-        e instanceof HostedError
-          ? e.message
-          : `Could not claim that name: ${e instanceof Error ? e.message : String(e)}`,
-      )
+      // 409 is the service reporting the name already exists, which is the only
+      // thing that distinguishes a first claim from an update.
+      if (!(e instanceof HostedError) || e.status !== 409) throw e
+      try {
+        result = await updateAddress(key, username, address)
+      } catch (inner) {
+        throw new HostedError(
+          inner instanceof HostedError && inner.status === 403
+            ? i18n(
+                '${name} is taken by someone else, or by a previous install of this package whose key is gone. Pick another name.',
+                { name: `${username}@${HOSTED_DOMAIN}` },
+              )
+            : inner instanceof Error
+              ? inner.message
+              : String(inner),
+        )
+      }
+    }
+
+    // Only after the new name is secured: a rename that released first and then
+    // failed to claim would leave the user with neither.
+    const note = await releaseStale(prior, username)
+
+    await paymentNameJson.merge(effects, {
+      mode: 'hosted',
+      address,
+      username,
+      domain,
+      checkRecord,
+    })
+
+    return {
+      version: '1',
+      title: i18n('Payment Name'),
+      message: [i18n('Your payment name is live. Nothing else to do.'), note]
+        .filter(Boolean)
+        .join(' '),
+      result: {
+        type: 'group',
+        value: [
+          {
+            name: i18n('Your payment name'),
+            description: i18n('Give this to anyone who wants to pay you.'),
+            type: 'single',
+            value: result.name,
+            copyable: true,
+            qr: true,
+            masked: false,
+          },
+        ],
+      },
     }
   },
 )
