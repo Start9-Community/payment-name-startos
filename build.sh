@@ -56,11 +56,15 @@ else
   RUN=(sudo -E env "PATH=$PATH" "HOME=$HOME")
 fi
 
+# Hand the workspace back whatever happens. Without this a failed build leaves
+# root-owned files and the next run cannot clear its own copy.
+reclaim() { sudo -n chown -R "$(id -u):$(id -g)" "$DST" 2>/dev/null || true; }
+trap reclaim EXIT INT TERM
+
 # make evaluates the ingredient list before it rebuilds the bundle, so a
 # manifest change needs two passes to be seen.
 (cd "$DST" && "${RUN[@]}" make "$ARCHES" >/dev/null 2>&1 || true)
 (cd "$DST" && "${RUN[@]}" make "$ARCHES")
-sudo -n chown -R "$(id -u):$(id -g)" "$DST" 2>/dev/null || true
 
 shopt -s nullglob
 built=("$DST"/*.s9pk)
