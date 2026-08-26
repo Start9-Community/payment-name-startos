@@ -1,6 +1,6 @@
 import { sdk } from './sdk'
 import { i18n } from './i18n'
-import { paymentNameJson } from './file-models/payment-name.json'
+import { paymentNameJson } from './fileModels/payment-name.json'
 import { checkPublishedRecord } from './checker'
 
 export const main = sdk.setupMain(async ({ effects }) => {
@@ -66,11 +66,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
           case 'mismatch':
             return { result: 'failure', message: cache.detail }
           // Not published yet is the normal state right after configuring, and
-          // DNS takes a little while to propagate.
-          case 'missing':
-            return { result: 'loading', message: cache.detail }
+          // an unreachable resolver is not evidence about the name either way.
           default:
-            return { result: 'starting', message: cache.detail }
+            return { result: 'loading', message: cache.detail }
         }
       },
     },

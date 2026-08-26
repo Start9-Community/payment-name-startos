@@ -4,11 +4,12 @@ import { long, short } from './i18n'
 export const manifest = setupManifest({
   id: 'payment-name',
   title: 'Payment Name',
-  license: 'mit',
-  packageRepo: 'https://github.com/bitsagarob/payment-name-startos',
+  license: 'MIT',
+  packageRepo: 'https://github.com/Start9-Community/payment-name-startos',
   upstreamRepo: 'https://github.com/bitsagarob/payment-name-startos',
-  marketingUrl: 'https://github.com/bitcoin/bips/blob/master/bip-0353.mediawiki',
-  donationUrl: 'https://github.com/bitcoin/bips/blob/master/bip-0353.mediawiki',
+  marketingUrl:
+    'https://github.com/bitcoin/bips/blob/master/bip-0353.mediawiki',
+  donationUrl: null,
   description: { short, long },
   volumes: ['main'],
   images: {
@@ -17,8 +18,5 @@ export const manifest = setupManifest({
       arch: ['x86_64', 'aarch64'],
     },
   },
-  // Deliberately none. Publishing a payment name needs your address and a DNS
-  // record, not a Bitcoin node. Tying this to a particular scanning server
-  // would exclude everyone who scans a different way, or who only receives.
   dependencies: {},
 })

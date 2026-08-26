@@ -1,186 +1,191 @@
-<h1 align="center">Payment Name</h1>
-
 <p align="center">
-  <em>Get paid in bitcoin by name, instead of by a long random address.</em><br>
-  <sub>A service for <a href="https://start9.com">StartOS</a>, the operating system for self-hosted servers.</sub>
+  <img src="icon.svg" alt="Payment Name Logo" width="21%">
 </p>
 
-<p align="center">
-  <a href="https://start9.com"><img src="https://img.shields.io/badge/for-StartOS-5b3df5?style=flat-square" alt="for StartOS"></a>
-  <a href="https://github.com/bitcoin/bips/blob/master/bip-0353.mediawiki"><img src="https://img.shields.io/badge/BIP--353-payment%20names-f7931a?style=flat-square" alt="BIP-353"></a>
-  <a href="https://github.com/bitcoin/bips/blob/master/bip-0352.mediawiki"><img src="https://img.shields.io/badge/BIP--352-silent%20payments-f7931a?style=flat-square" alt="BIP-352"></a>
-  <a href="#it-needs-nothing-else"><img src="https://img.shields.io/badge/dependencies-none-brightgreen?style=flat-square" alt="no dependencies"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT"></a>
-</p>
+# Payment Name on StartOS
+
+> Everything not listed in this document should behave the same as upstream
+> Payment Name. If a feature, setting, or behavior is not mentioned here, the
+> upstream documentation is accurate and fully applicable — see the
+> Documentation section of `instructions.md` for links.
+
+Payment Name publishes a BIP-353 payment name — `alice@example.com` — that resolves to the user's BIP-352 silent payment address, and then keeps re-resolving it to catch the name being repointed at somebody else. It holds no keys, moves no money, and needs no Bitcoin node.
+
+- **Upstream repo:** <https://github.com/bitsagarob/payment-name-startos>
+- **Wrapper repo:** <https://github.com/Start9-Community/payment-name-startos>
 
 ---
 
-## What this is
+## Table of Contents
 
-Instead of giving people a bitcoin address like this:
+- [Image and Container Runtime](#image-and-container-runtime)
+- [Volume and Data Layout](#volume-and-data-layout)
+- [File Models](#file-models)
+- [Dependencies](#dependencies)
+- [Network Access and Interfaces](#network-access-and-interfaces)
+- [Installation and First-Run Flow](#installation-and-first-run-flow)
+- [Actions](#actions)
+- [Tasks](#tasks)
+- [Health Checks](#health-checks)
+- [Backups and Restore](#backups-and-restore)
+- [Limitations and Differences](#limitations-and-differences)
+- [Quick Reference for AI Consumers](#quick-reference-for-ai-consumers)
 
+---
+
+## Image and Container Runtime
+
+A two-line Debian build that installs nothing. The package's entire runtime is the health check and the action, both of which execute in the StartOS JS runtime rather than inside the container.
+
+| Property      | Value                                         |
+| ------------- | --------------------------------------------- |
+| Image         | Built from `Dockerfile` (`FROM debian`, slim) |
+| Architectures | x86_64, aarch64                               |
+| Command       | `sleep infinity`                              |
+
+| Subcontainer  | Purpose                                                          |
+| ------------- | ---------------------------------------------------------------- |
+| `primary-sub` | The `sleep infinity` daemon — nothing to attach to for diagnosis |
+
+**Attaching to `primary-sub` will tell you nothing about this service.** The container has no logs, no config, and no process worth inspecting. Everything diagnosable is in the service logs, which carry the JS runtime's output, and in the health-check message.
+
+## Volume and Data Layout
+
+One volume holding two small JSON files. There is no database and no cache.
+
+| Volume | Mount Point | Purpose                                                 |
+| ------ | ----------- | ------------------------------------------------------- |
+| `main` | `/data`     | The published name's settings and the hosted-domain key |
+
+**`hosted-key.json` is irreplaceable.** It is the only proof of ownership over a name claimed on the hosted domain — lose it and that name can never be updated or released again by this server, and the only recourse is to pick a different name.
+
+## File Models
+
+Two models, both JSON, both written exclusively by the Configure action. Nothing is re-asserted on start, so a hand edit survives until the next time the action runs — at which point the whole file is rewritten from the form.
+
+| File                      | Volume | Format | Modelled                | Written by                                |
+| ------------------------- | ------ | ------ | ----------------------- | ----------------------------------------- |
+| `/data/payment-name.json` | `main` | JSON   | Yes — `FileHelper.json` | Install (empty), Configure action         |
+| `/data/hosted-key.json`   | `main` | JSON   | Yes — `FileHelper.json` | Configure action, first hosted claim only |
+
+`payment-name.json` holds `mode` (`off` / `own` / `hosted`), the silent payment address, the local part and the domain of the published name, and the `checkRecord` toggle. Install seeds it with an empty merge, so every field takes its schema default and `mode` is `off`.
+
+`hosted-key.json` holds one field: the hex-encoded secret key that signs requests to the hosted domain. It is generated the first time a hosted name is claimed and never regenerated, never sent anywhere, and never surfaced in the UI — only signatures made with it leave the server.
+
+The package keeps no `store.json`.
+
+## Dependencies
+
+None, deliberately. Publishing a payment name needs an address and a DNS record, not a Bitcoin node; requiring a particular scanning backend would exclude everyone who scans a different way or who only receives.
+
+## Network Access and Interfaces
+
+None. This package serves nothing — it has no ports, no bindings, and no interfaces, and its service page carries no address list.
+
+All of its network traffic is outbound: DNS-over-HTTPS to `cloudflare-dns.com` and `dns.google` for the watchdog, and HTTPS to `silentpayments.net` when the user chooses a hosted name.
+
+**DNS-over-HTTPS is not an optimization here.** The StartOS container resolver forwards queries without `RRSIG` or the `AD` flag, so over port 53 a DNSSEC-signed answer cannot be told from an unsigned one — and BIP-353 requires wallets to reject an unsigned name. Going over HTTPS is what makes "is this name actually signed?" answerable at all.
+
+## Installation and First-Run Flow
+
+Install writes an empty settings file, starts the daemon, and stops. There is no account, no credential, and no task — the health check reports `disabled` and the service sits idle until the user runs the Configure action.
+
+Nothing is published without the user's address, which the package cannot derive: it comes from wallet keys that never leave the wallet.
+
+## Actions
+
+One action, `payment-name`, visible and runnable in any service state. It is both the setup form and the only control the package has.
+
+### Payment Name
+
+Sets where the name lives, the address, and the name itself, and — for a hosted name — claims it on `silentpayments.net` in the same call.
+
+The form is a union on where the name is published, so the fields below the selection are the ones that selection actually uses: `None` has none, a hosted name takes an address and a local part, and only a name on your own domain asks for a domain. A support agent reading a user's screenshot should expect the field set to differ between the three.
+
+- **When to run it:** to publish a name for the first time, to change the address a published name points at, to rename, or to stop publishing.
+- **What it changes:** `payment-name.json` always; `hosted-key.json` on the first hosted claim; and, in hosted mode, the record on `silentpayments.net`.
+- **Cost:** a second or two — one HTTPS round trip in hosted mode, none in the other two. It does not interrupt the service.
+- **Repeat safety:** idempotent. Re-running with the same values in `own` mode returns the same DNS record; in hosted mode it updates a name this server already owns rather than failing.
+- **What happens next:** the service restarts so the watchdog re-checks against the new values rather than serving a cached verdict about the old ones.
+- **Outputs:** in `own` mode, the payment name plus the exact TXT record name and value to publish. In `hosted` mode, the payment name, already live.
+
+**Switching away from a hosted name releases it.** Choosing `off`, choosing `own`, or renaming while in `hosted` mode sends a delete to `silentpayments.net` first, so the name does not sit claimed on a domain this server no longer publishes to. If that call fails the local change still applies and the result message says the release did not happen — the name is then stranded until the same key can reach the service again.
+
+**A failed hosted claim writes nothing.** The settings are saved only after the service confirms the name, so a claim that fails leaves the package exactly as it was rather than watching a name the user never got.
+
+## Tasks
+
+None. The service is never held on a prompt, and its ordinary controls are always available.
+
+## Health Checks
+
+One check, `primary`, displayed as "Payment Name". It is the entire point of the package rather than a readiness probe: it re-resolves the published record and compares it to what the user published.
+
+| Result     | What it means                                                                             |
+| ---------- | ----------------------------------------------------------------------------------------- |
+| `disabled` | No name published, or the watchdog toggle is off. Nothing is being checked.               |
+| `success`  | The record resolves, is DNSSEC-signed, and carries the configured address.                |
+| `loading`  | No record found yet, or no resolver could be reached. Neither is evidence about the name. |
+| `failure`  | The record resolves and does **not** match: repointed, unsigned, or duplicated.           |
+
+**A `failure` here is a security event, not a fault in the package.** It means the name a user has been handing out no longer resolves to their address, and every payment made to it from now on goes somewhere else. The message says which of the three cases it is:
+
+- _no longer points at your address_ — whoever controls the domain changed the record.
+- _is not DNSSEC-signed_ — the value is right but wallets will refuse the name; usually DNSSEC was turned off or the zone was re-signed badly.
+- _has N payment records_ — more than one BIP-353 record exists at the name, and the spec tells wallets to refuse all of them, so nobody can pay at all.
+
+**`loading` is deliberately not a failure.** A name published minutes ago has not propagated, and an unreachable resolver says nothing about the record; treating either as an alarm would train the user to ignore the one that matters.
+
+Two resolvers are queried and a problem is reported only when every resolver that answered agrees. Enabling DNSSEC on a zone hard-fails resolvers still holding the unsigned answer until their caches expire, which a single-resolver check would report as a compromised name.
+
+The verdict is cached for five minutes, so the poll interval does not turn into a DoH request per tick. Changing the settings restarts the service, which discards the cache.
+
+## Backups and Restore
+
+The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')`. There is nothing to dump and nothing excluded.
+
+- **Included:** the published name's settings and the hosted-domain key.
+- **This backup contains the key that controls any hosted name on the server.** Anyone holding it can repoint that name at their own address. Treat it accordingly.
+- **Restore:** the watchdog resumes on the first start with no further input. A restore is the only way to recover the hosted key — the DNS record survives regardless, since it lives on somebody else's nameservers, but without the key it can never be changed or released again.
+
+## Limitations and Differences
+
+1. **It cannot publish a record on a domain you control.** In `own` mode it produces the record and the user adds it at their DNS provider; there is no registrar or nameserver integration.
+2. **It does not verify the DNSSEC chain itself.** It asks two public resolvers whether the answer validated. That is adequate for noticing a change and is _not_ what a paying wallet does, which validates the chain independently as BIP-353 requires.
+3. **Hosted names depend on a third party.** `silentpayments.net` controls that zone and could repoint a name; the watchdog exists to make that visible, not to prevent it.
+4. **A hosted name whose key is lost is gone.** There is no recovery flow and no support channel in the package — pick another name.
+5. **It cannot find your payments.** Detecting silent payments needs a scanning backend, which this package deliberately does not provide or require.
+6. **It holds no keys and moves no money.** The silent payment address must be copied in from a wallet; nothing here can derive it.
+7. **Only mainnet addresses are accepted.** The validator requires the `sp1` human-readable part.
+8. **No interfaces.** There is nothing to open, and no address to copy from the service page.
+
+---
+
+## Quick Reference for AI Consumers
+
+```yaml
+package_id: payment-name
+image: ./Dockerfile # FROM debian slim; installs nothing
+architectures:
+  - x86_64
+  - aarch64
+subcontainers:
+  - primary-sub # sleep infinity; nothing to inspect
+volumes:
+  main: /data
+file_models:
+  - /data/payment-name.json # mode, address, name, domain, watchdog toggle
+  - /data/hosted-key.json # NIP-98 signing key for the hosted domain; irreplaceable
+startos_managed_env_vars: []
+dependencies: []
+interfaces: {} # none; the package serves nothing
+actions:
+  - payment-name
+tasks: []
+health_checks:
+  - primary # displayed "Payment Name"; the DNS watchdog, not a readiness probe
+outbound_hosts:
+  - cloudflare-dns.com # DNS-over-HTTPS
+  - dns.google # DNS-over-HTTPS
+  - silentpayments.net # hosted names only
 ```
-bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh
-```
-
-you give them a name like this:
-
-```
-alice@example.com
-```
-
-They type it into their wallet and pay you. That is the whole idea.
-
-You install this on your own [StartOS](https://start9.com) server, paste in your address, and pick
-a name. It publishes the name for you and then keeps an eye on it.
-
-## Why bother
-
-**A bitcoin address is a public record.** Put one on your website or your invoices, and every
-person who pays you can look up every other payment you have ever received to it. And your balance.
-Forever. That is why most people never publish one, and instead send a fresh address to each person
-by hand.
-
-**Silent payments fix that.** It is a newer kind of bitcoin address, where each person paying you
-works out a fresh, unrelated address of their own. Two people who pay you cannot tell they paid the
-same person, and neither can anyone else looking at the blockchain. So you can safely publish one
-address and keep it for life.
-([BIP-352](https://github.com/bitcoin/bips/blob/master/bip-0352.mediawiki), if you want the spec.)
-
-**The catch is that nobody can read one out loud.** A silent payment address is 116 characters. It
-solved the privacy problem and created a usability one.
-
-**This closes that gap.** It publishes a name that points at your address, using a bitcoin standard
-called [BIP-353](https://github.com/bitcoin/bips/blob/master/bip-0353.mediawiki). Wallets already
-understand it: Sparrow and Cake Wallet both resolve these names today.
-
-## What you need
-
-- A **[StartOS](https://start9.com) server**. That is a Start9 box, or StartOS installed on your
-  own hardware.
-- A **silent payment address**, the `sp1...` string. Your wallet makes it, not this. In Sparrow,
-  create a wallet with policy type *Single Signature SP* and copy it from the Receive tab.
-- Either a **domain you control** with DNSSEC turned on, or use a hosted name.
-
-## It needs nothing else
-
-No bitcoin node. No Electrum server. No scanning server. It holds none of your keys and cannot
-touch your money.
-
-That is worth explaining, because it surprises people. Getting paid privately has two separate
-halves:
-
-1. **Receiving.** Your wallet makes an address, people pay it, coins arrive. **No server is
-   involved at any point.** This package is about this half.
-2. **Finding** those payments afterwards. That needs something to scan the blockchain for you,
-   such as [Frigate](https://github.com/sparrowwallet/frigate).
-
-Tying this to one particular scanner would shut out everyone who scans a different way.
-
-**That said, run your own scanner.** The silent payments protocol hands your *scan key* to whichever
-server your wallet is pointed at. That key cannot spend your coins. It does reveal every payment
-you will ever receive.
-
-## It watches your name, and that is the point
-
-Once published, a payment name is the kind of thing nobody ever checks again. Which is exactly what
-makes it worth attacking.
-
-If whoever controls the domain quietly points your name at their own address, every payment from
-then on goes to them. Every signature still checks out, so no wallet warns anybody. And because
-silent payments are unlinkable, you could not follow the money to see where it went.
-
-The bitcoin standard has **no security section at all**, and nothing else in the ecosystem notices
-this. So this package re-checks your published name and **turns red** if it stops pointing at you.
-
-On your own domain that is a nicety. On someone else's domain it is the only protection there is.
-
-### It asks two resolvers, on purpose
-
-A warning light that goes off for no reason is worse than none.
-
-Turning on DNSSEC flips a domain from *unsigned* to *signed*, and DNS resolvers holding the old
-answer refuse the name until their caches expire. During that window one resolver calls a perfectly
-good name broken while another is already happy.
-
-So it asks **two**, treats "the resolver refused to answer" as different from "there is no record",
-and only reports a problem when everyone who answered agrees.
-
-It reports: a missing record, a record pointing somewhere else, DNSSEC not working, and more than
-one payment record on the same name. That last one means nobody can pay you at all, because the
-standard tells wallets to refuse a name carrying several.
-
-### Checked against real names in the wild
-
-| Name | Result |
-|---|---|
-| `conorokus@twelve.cash` | accepted; properly signed, valid address |
-| `satoshi@twelve.cash` | flagged unpayable; **5 conflicting records** |
-| `matt@mattcorallo.com` | accepted |
-| a name that does not exist | handled |
-
-## Two modes
-
-- **On a domain you control.** The action returns the exact TXT record to publish. Nobody but you
-  can repoint it. Your domain needs DNSSEC, or wallets will refuse the name.
-- **Hosted, on [silentpayments.net](https://silentpayments.net).** For people who do not own a
-  domain. Free, no account, and this claims it for you: type a name, press save, done. The service
-  is a third party, so it could in principle repoint your name; that is precisely what the watchdog
-  above is for.
-
-  There is no password to keep. On first use the package generates a key, stores it in its own
-  volume, and signs each request with it, so the name is bound to a key that never leaves your
-  server. Losing that volume without a backup means losing the ability to change or release the
-  name.
-
-## Using it
-
-Install it, then open **Actions & Config → Payment Name** on your server.
-
-Choose whether the name goes on your own domain or a hosted one, paste your `sp1...` address, pick
-a name, and save. If you chose your own domain, it hands you the exact DNS record to add. Then the
-health check watches it from there on.
-
-## Building it yourself
-
-```
-./build.sh x86
-```
-
-That produces the `.s9pk` you can sideload onto StartOS. Everything below is why the script exists
-rather than a plain `make`, and is only interesting if you are changing the package.
-
-`start-cli` requires a packaging workspace in this repo's **parent** directory and fills it with a
-74 MB clone of the Start9 monorepo, a build key and its own `AGENTS.md`. It also resolves symlinks,
-so linking this repo into a workspace elsewhere does not work. The build therefore runs in a synced
-copy under `~/.cache/s9-workspace` and the `.s9pk` is copied back.
-
-Three environment quirks the script handles, all found the hard way:
-
-- `start-cli` resolves the configured StartOS host at startup even for offline commands like
-  `pack`, and hard fails if the scaffolded `dev-vm.local` does not resolve.
-- It shells out to `docker`, which may need root. The script uses `sudo` for the build rather than
-  putting the build user in the `docker` group, which is equivalent to giving it root.
-- `docker buildx` is required and ships separately (`docker-buildx` on Debian and Ubuntu). Without
-  it the error is an unhelpful `unknown shorthand flag: 'f' in -f`.
-
-`make` also derives its ingredient list before it builds the TypeScript bundle, so the script
-bundles first and runs make twice.
-
-## How it works inside
-
-The container runs `sleep infinity`. All the work happens in a StartOS health check, which executes
-in the OS's JavaScript runtime rather than inside the container. The image exists only to give the
-service something to be.
-
-## Related
-
-- **[silentpayments.net](https://silentpayments.net)** hands out hosted names, if you do not own a
-  domain.
-- **[Frigate](https://github.com/sparrowwallet/frigate)** is the scanner that finds the payments
-  once people start sending them.
-- **[StartOS](https://start9.com)** is the operating system this runs on.
-
-## Licence
-
-MIT. See [LICENSE](LICENSE).
