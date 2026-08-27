@@ -1,20 +1,29 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <!--
+    A payment name is a bitcoin address you can say out loud, so the mark is a
+    speech bubble with the bitcoin symbol knocked out of it.
+
+    Drawn as one solid shape with the glyph removed rather than an outline on a
+    background: an outlined mark silts up below about 40px, and the marketplace
+    shows this at 24. Checked at 190, 64, 40 and 24 before it was committed.
+  -->
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#2b2f36"/>
-      <stop offset="100%" stop-color="#16181c"/>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2f343d"/>
+      <stop offset="100%" stop-color="#15171b"/>
     </linearGradient>
   </defs>
-  <rect width="256" height="256" rx="56" fill="url(#bg)"/>
-  <!-- the @ ring: a payment name is an address you can read -->
-  <circle cx="128" cy="128" r="72" fill="none" stroke="#f7931a" stroke-width="14"/>
-  <path d="M188 128a60 60 0 1 0-22 46" fill="none" stroke="#f7931a" stroke-width="14"
-        stroke-linecap="round" transform="rotate(35 128 128)"/>
-  <!-- bitcoin B at the centre, where the 'a' of an @ would sit -->
-  <g fill="#ffffff">
-    <rect x="118" y="88" width="10" height="80" rx="4"/>
-    <rect x="136" y="88" width="10" height="80" rx="4"/>
-    <path d="M104 100h38a19 19 0 0 1 0 38h-38zm0 38h42a19 19 0 0 1 0 38h-42z"
-          fill="none" stroke="#ffffff" stroke-width="13" stroke-linejoin="round"/>
+
+  <rect width="256" height="256" rx="56" fill="url(#tile)"/>
+
+  <path d="M76 40h104a40 40 0 0 1 40 40v56a40 40 0 0 1-40 40h-58l-40 34 6-34h-12a40 40 0 0 1-40-40V80a40 40 0 0 1 40-40z"
+        fill="#f7931a"/>
+
+  <g fill="none" stroke="#15171b" stroke-width="14"
+     stroke-linecap="round" stroke-linejoin="round">
+    <path d="M109 74v70"/>
+    <path d="M109 74h24a17 17 0 0 1 0 34h-24"/>
+    <path d="M109 108h28a17 17 0 0 1 0 34h-28"/>
+    <path d="M125 62v12M147 62v12M125 142v12M147 142v12"/>
   </g>
 </svg>

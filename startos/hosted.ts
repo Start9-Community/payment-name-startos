@@ -87,14 +87,34 @@ async function call<T>(
   return json as T
 }
 
-export const claim = (k: Uint8Array, username: string, address: string) =>
-  call<ClaimResult>(k, 'POST', '/api/claim', { username, address })
+export const claim = (
+  k: Uint8Array,
+  username: string,
+  address: string,
+  offer?: string,
+) =>
+  call<ClaimResult>(k, 'POST', '/api/claim', {
+    username,
+    address,
+    offer: offer ?? '',
+  })
 
+/**
+ * The empty string is deliberate and is not the same as omitting the field.
+ * The service reads an absent `offer` on an update as "leave whatever is there
+ * alone", so a user who removes their Lightning offer here would silently keep
+ * publishing the old one. Sending an empty string clears it.
+ */
 export const updateAddress = (
   k: Uint8Array,
   username: string,
   address: string,
-) => call<ClaimResult>(k, 'PUT', `/api/name/${username}`, { address })
+  offer?: string,
+) =>
+  call<ClaimResult>(k, 'PUT', `/api/name/${username}`, {
+    address,
+    offer: offer ?? '',
+  })
 
 export const release = (k: Uint8Array, username: string) =>
   call<{ released: string }>(k, 'DELETE', `/api/name/${username}`)

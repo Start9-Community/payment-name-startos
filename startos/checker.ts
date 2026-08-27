@@ -58,10 +58,28 @@ const RESOLVERS = [
  * payment instructions in one record, so comparing the whole string would
  * report a user who added a Lightning offer as having been repointed.
  */
-function silentPaymentOf(record: string): string | null {
+function paramOf(record: string, key: string): string | null {
   const q = record.toLowerCase().indexOf('?')
   if (q < 0) return null
-  return new URLSearchParams(record.toLowerCase().slice(q + 1)).get('sp')
+  return new URLSearchParams(record.toLowerCase().slice(q + 1)).get(key)
+}
+
+const silentPaymentOf = (record: string) => paramOf(record, 'sp')
+
+/**
+ * Does this record still carry what the user configured?
+ *
+ * The address is always compared. The BOLT 12 offer is compared ONLY when the
+ * user configured one, which is the whole subtlety: comparing an offer the
+ * user never set would report anyone who added a Lightning offer by some other
+ * route as having been repointed. Ignoring it when they did set one would let
+ * their Lightning half be stripped in silence, which is the same silent
+ * repoint this package exists to catch, one parameter over.
+ */
+function carries(record: string, address: string, offer?: string): boolean {
+  if (silentPaymentOf(record) !== address) return false
+  if (!offer) return true
+  return paramOf(record, 'lno') === offer.toLowerCase()
 }
 
 type Lookup = {
@@ -121,6 +139,7 @@ export async function checkPublishedRecord(): Promise<{
 
   const name = recordName(cfg.username, cfg.domain)
   const expected = cfg.address.toLowerCase()
+  const expectedOffer = cfg.offer?.toLowerCase()
 
   const results = await Promise.all(
     RESOLVERS.map((r) =>
@@ -144,7 +163,7 @@ export async function checkPublishedRecord(): Promise<{
   const good = answered.filter(
     (r) =>
       r.records.length === 1 &&
-      silentPaymentOf(r.records[0]) === expected &&
+      carries(r.records[0], expected, expectedOffer) &&
       r.validated !== false,
   )
   if (good.length > 0)
@@ -166,7 +185,8 @@ export async function checkPublishedRecord(): Promise<{
     }
 
   const wrong = answered.find(
-    (r) => r.records.length === 1 && silentPaymentOf(r.records[0]) !== expected,
+    (r) =>
+      r.records.length === 1 && !carries(r.records[0], expected, expectedOffer),
   )
   if (wrong)
     return {

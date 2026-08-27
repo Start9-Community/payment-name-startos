@@ -20,6 +20,16 @@ export const shape = z.object({
   mode: z.enum(['off', 'own', 'hosted']).catch('off'),
   /** bech32m, hrp `sp`, mainnet. Validated in the configure action. */
   address: z.string().optional().catch(undefined),
+  /**
+   * An optional BOLT 12 offer, so one name pays over Lightning or on-chain and
+   * the sender's wallet decides which.
+   *
+   * Optional, and the address is not, because a BOLT 12 offer carries no
+   * checksum: a swapped character is publishable and nothing can detect it.
+   * The address is bech32m and a typo in it fails immediately, so it stays the
+   * leg that always works.
+   */
+  offer: z.string().optional().catch(undefined),
   /** The local part, e.g. `alice` in alice@example.com. */
   username: z.string().optional().catch(undefined),
   /** The domain part. Fixed by the provider in `hosted` mode. */
@@ -44,5 +54,10 @@ export const paymentNameJson = FileHelper.json(
 export const recordName = (username: string, domain: string) =>
   `${username}.user._bitcoin-payment.${domain}`
 
-/** The record's contents: a BIP-321 URI carrying only a silent payment address. */
-export const recordValue = (address: string) => `bitcoin:?sp=${address}`
+/**
+ * The record's contents: a BIP-321 URI. The silent payment address is always
+ * present; a BOLT 12 offer rides alongside it as `lno` when the user gave one,
+ * and the payer's wallet picks a rail.
+ */
+export const recordValue = (address: string, offer?: string) =>
+  offer ? `bitcoin:?sp=${address}&lno=${offer}` : `bitcoin:?sp=${address}`

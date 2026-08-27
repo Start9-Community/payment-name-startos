@@ -57,6 +57,15 @@ const dict = {
   'The exact contents of that TXT record.': 46,
   '${name} is taken by someone else, or by a previous install of this package whose key is gone. Pick another name.': 47,
   'Your payment name is live. Nothing else to do.': 48,
+
+  // offer.ts, and the offer field in actions/configure.ts
+  'Lightning offer': 49,
+  "Optional. A BOLT 12 offer from a Lightning wallet, starting lno1. Add one and the same name pays over Lightning too, with the sender's wallet choosing which. Leave it empty if you do not have one.": 50,
+  'That Lightning offer is too long to publish.': 51,
+  'That Lightning offer mixes upper and lower case. Copy it again from your wallet.': 52,
+  'A BOLT 12 offer starts with lno1. Copy it from your Lightning wallet.': 53,
+  'That Lightning offer is not valid. Some of it is missing or mistyped.': 54,
+  'That Lightning offer names no node to pay. Copy it again from your wallet.': 55,
 } as const
 
 /**

@@ -7,6 +7,7 @@ import {
   shape,
 } from '../fileModels/payment-name.json'
 import { DOMAIN, SP_ADDRESS, USERNAME, validate } from '../checker'
+import { validateOffer } from '../offer'
 import { hostedKeyJson } from '../fileModels/hosted-key.json'
 import {
   claim,
@@ -39,6 +40,23 @@ const address = Value.text({
       ),
     },
   ],
+})
+
+/**
+ * Optional, unlike the address, because a BOLT 12 offer has no checksum: a
+ * swapped character is publishable and undetectable. No `patterns` entry for
+ * the same reason, since a regex would promise a check it cannot make. The
+ * real validation is a TLV walk in offer.ts.
+ */
+const offer = Value.text({
+  name: i18n('Lightning offer'),
+  description: i18n(
+    "Optional. A BOLT 12 offer from a Lightning wallet, starting lno1. Add one and the same name pays over Lightning too, with the sender's wallet choosing which. Leave it empty if you do not have one.",
+  ),
+  required: false,
+  default: null,
+  placeholder: 'lno1...',
+  inputmode: 'text',
 })
 
 const username = Value.text({
@@ -94,11 +112,11 @@ const inputSpec = InputSpec.of({
       off: { name: i18n('None'), spec: InputSpec.of({}) },
       own: {
         name: i18n('On a domain I control'),
-        spec: InputSpec.of({ address, username, domain, checkRecord }),
+        spec: InputSpec.of({ address, offer, username, domain, checkRecord }),
       },
       hosted: {
         name: i18n('Hosted for me on silentpayments.net'),
-        spec: InputSpec.of({ address, username, checkRecord }),
+        spec: InputSpec.of({ address, offer, username, checkRecord }),
       },
     }),
   }),
@@ -155,6 +173,7 @@ export const configure = sdk.Action.withInput(
     const shared = {
       address: cfg?.address,
       username: cfg?.username,
+      offer: cfg?.offer,
       checkRecord: cfg?.checkRecord ?? true,
     }
     const own = { ...shared, domain: cfg?.domain }
@@ -210,12 +229,17 @@ export const configure = sdk.Action.withInput(
     const { address, username, domain } = check
     const { checkRecord } = publish.value
 
+    const offerCheck = validateOffer(publish.value.offer)
+    if (!offerCheck.ok) throw new Error(offerCheck.reason)
+    const offer = offerCheck.offer ?? undefined
+
     if (publish.selection === 'own') {
       const note = await releaseStale(prior, null)
 
       await paymentNameJson.merge(effects, {
         mode: 'own',
         address,
+        offer,
         username,
         domain,
         checkRecord,
@@ -256,7 +280,7 @@ export const configure = sdk.Action.withInput(
               name: i18n('Record value'),
               description: i18n('The exact contents of that TXT record.'),
               type: 'single',
-              value: recordValue(address),
+              value: recordValue(address, offer),
               copyable: true,
               qr: false,
               masked: false,
@@ -276,13 +300,13 @@ export const configure = sdk.Action.withInput(
 
     let result
     try {
-      result = await claim(key, username, address)
+      result = await claim(key, username, address, offer)
     } catch (e) {
       // 409 is the service reporting the name already exists, which is the only
       // thing that distinguishes a first claim from an update.
       if (!(e instanceof HostedError) || e.status !== 409) throw e
       try {
-        result = await updateAddress(key, username, address)
+        result = await updateAddress(key, username, address, offer)
       } catch (inner) {
         // 404 means the name is not there to update, so the claim's own refusal
         // was the real reason and this fallback never had anything to say. Show
@@ -309,6 +333,7 @@ export const configure = sdk.Action.withInput(
     await paymentNameJson.merge(effects, {
       mode: 'hosted',
       address,
+      offer,
       username,
       domain,
       checkRecord,
