@@ -9,7 +9,7 @@
 > upstream documentation is accurate and fully applicable — see the
 > Documentation section of `instructions.md` for links.
 
-Payment Name publishes a BIP-353 payment name — `alice@example.com` — that resolves to the user's BIP-352 silent payment address, and then keeps re-resolving it to catch the name being repointed at somebody else. It holds no keys, moves no money, and needs no Bitcoin node.
+Payment Name publishes a BIP-353 payment name — `alice@example.com` — that resolves to the user's BIP-352 silent payment address, optionally alongside a BOLT 12 Lightning offer, and then keeps re-resolving it to catch the name being repointed at somebody else. It holds no keys, moves no money, and needs no Bitcoin node.
 
 - **Upstream repo:** <https://github.com/bitsagarob/payment-name-startos>
 - **Wrapper repo:** <https://github.com/Start9-Community/payment-name-startos>
@@ -68,7 +68,7 @@ Two models, both JSON, both written exclusively by the Configure action. Nothing
 | `/data/payment-name.json` | `main` | JSON   | Yes — `FileHelper.json` | Install (empty), Configure action         |
 | `/data/hosted-key.json`   | `main` | JSON   | Yes — `FileHelper.json` | Configure action, first hosted claim only |
 
-`payment-name.json` holds `mode` (`off` / `own` / `hosted`), the silent payment address, the local part and the domain of the published name, and the `checkRecord` toggle. Install seeds it with an empty merge, so every field takes its schema default and `mode` is `off`.
+`payment-name.json` holds `mode` (`off` / `own` / `hosted`), the silent payment address, an optional BOLT 12 `offer`, the local part and the domain of the published name, and the `checkRecord` toggle. Install seeds it with an empty merge, so every field takes its schema default and `mode` is `off`.
 
 `hosted-key.json` holds one field: the hex-encoded secret key that signs requests to the hosted domain. It is generated the first time a hosted name is claimed and never regenerated, never sent anywhere, and never surfaced in the UI — only signatures made with it leave the server.
 
@@ -152,12 +152,14 @@ The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')`. There
 
 1. **It cannot publish a record on a domain you control.** In `own` mode it produces the record and the user adds it at their DNS provider; there is no registrar or nameserver integration.
 2. **It does not verify the DNSSEC chain itself.** It asks two public resolvers whether the answer validated. That is adequate for noticing a change and is _not_ what a paying wallet does, which validates the chain independently as BIP-353 requires.
-3. **Hosted names depend on a third party.** `silentpayments.net` controls that zone and could repoint a name; the watchdog exists to make that visible, not to prevent it.
+3. **Hosted names depend on a third party — the operator of `silentpayments.net`, who is also this package's author.** That's a real dependency, not a decorative one: they control the zone and could repoint a name, which is exactly what the watchdog exists to make visible rather than prevent. `silentpayments.net`'s source is being made fully public, so that claim will be checkable rather than taken on trust.
 4. **A hosted name whose key is lost is gone.** There is no recovery flow and no support channel in the package — pick another name.
 5. **It cannot find your payments.** Detecting silent payments needs a scanning backend, which this package deliberately does not provide or require.
 6. **It holds no keys and moves no money.** The silent payment address must be copied in from a wallet; nothing here can derive it.
 7. **Only mainnet addresses are accepted.** The validator requires the `sp1` human-readable part.
-8. **No interfaces.** There is nothing to open, and no address to copy from the service page.
+8. **A BOLT 12 offer is optional and the address is not.** Offers carry no checksum, so a swapped character is publishable and undetectable. `offer.ts` checks the prefix, the bech32 alphabet, a clean 5-bit unpacking, a TLV stream that parses and ends exactly, and the presence of `offer_issuer_id` or `offer_paths`. That catches truncation, a stray character and a BOLT 11 paste; it cannot catch a substitution, and nothing can.
+9. **The watchdog compares against exactly what was configured.** On a hosted name the whole published record is compared, so a payment instruction added under any name is caught. On a domain the user controls only `sp` and `lno` are compared, absence included — that user's own DNS provider may legitimately carry instructions this package never asked for, and an exact match would report those as a repoint.
+10. **No interfaces.** There is nothing to open, and no address to copy from the service page.
 
 ---
 
@@ -174,7 +176,7 @@ subcontainers:
 volumes:
   main: /data
 file_models:
-  - /data/payment-name.json # mode, address, name, domain, watchdog toggle
+  - /data/payment-name.json # mode, address, offer, name, domain, watchdog toggle
   - /data/hosted-key.json # NIP-98 signing key for the hosted domain; irreplaceable
 startos_managed_env_vars: []
 dependencies: []

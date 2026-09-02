@@ -17,6 +17,8 @@ There are no interfaces to open and nothing to log into. The Actions tab is the 
 
 You need your **silent payment address** — the long string beginning `sp1`. Copy it from a wallet that supports silent payments; nothing here can work it out for you, because it comes from keys that never leave your wallet.
 
+Optionally, you can also add a **BOLT 12 Lightning offer** — the string beginning `lno1`, from a Lightning wallet that supports offers. Add one and the same name accepts Lightning payments as well as on-chain ones, with the sender's wallet choosing which. Leave it empty if you do not have one; everything else works exactly the same.
+
 If you want to publish on a domain you own, that domain must have **DNSSEC enabled**. Without it, wallets refuse the name. Your DNS provider will have a switch for it.
 
 ## Getting set up
@@ -24,6 +26,7 @@ If you want to publish on a domain you own, that domain must have **DNSSEC enabl
 1. Open the **Actions** tab and run **Payment Name**.
 2. Under **Payment name**, choose where the name should live — _On a domain I control_, or _Hosted for me on silentpayments.net_. The rest of the form changes to match what that choice needs.
 3. Paste your `sp1...` address and pick the name you want before the `@`. On your own domain, enter that domain too.
+   Optionally paste a `lno1...` Lightning offer as well.
 4. Leave _Warn me if my payment name changes_ on.
 5. Save.
 
@@ -36,6 +39,14 @@ On your own domain, the action hands back three values: your payment name, the D
 ### Sharing your name
 
 Give out `you@yourdomain.com` the way you would an email address. A wallet that understands payment names resolves it and pays your silent payment address. Each person paying you derives a fresh address of their own, so publishing one name for life reveals nothing about what you have been paid.
+
+If you added a Lightning offer, the same name also works for anyone paying over Lightning. Their wallet reads both and picks whichever it can use, so you hand out one string either way.
+
+### A word about Lightning offers
+
+A silent payment address has a checksum, so a mistyped one is rejected immediately. **A BOLT 12 offer does not.** This package checks an offer's structure as far as structure can be checked, and it will catch a truncated or mangled paste, but it cannot catch a single swapped character. Copy the offer rather than typing it, and if you can, have someone pay you a small amount once to confirm it works.
+
+Offers can also go stale in a way addresses do not: an offer may point at a node or a Lightning service provider that changes. Your silent payment address is only keys, so it keeps working regardless. That is why the address is required and the offer is not.
 
 ### The health check is the point
 

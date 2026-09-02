@@ -1,5 +1,9 @@
 import { i18n } from './i18n'
-import { paymentNameJson, recordName } from './fileModels/payment-name.json'
+import {
+  paymentNameJson,
+  recordName,
+  recordValue,
+} from './fileModels/payment-name.json'
 
 /** bech32m data part of a version-0 silent payment address: two 33-byte keys. */
 export const SP_ADDRESS = /^sp1[02-9ac-hj-np-z]{100,150}$/
@@ -54,14 +58,61 @@ const RESOLVERS = [
 ]
 
 /**
- * The `sp` parameter of a BIP-321 URI. BIP-353 allows a name to carry several
- * payment instructions in one record, so comparing the whole string would
- * report a user who added a Lightning offer as having been repointed.
+ * A named parameter of a BIP-321 URI's query string. BIP-353 allows a name to
+ * carry several payment instructions in one record, so comparing the whole
+ * string would report a user who added a second instruction as repointed.
+ * More than one occurrence of the same key is never a legitimate value —
+ * `\0` cannot appear in a real address or offer — so it can only ever fail a
+ * comparison, whether the caller expected a specific value or none at all.
  */
-function silentPaymentOf(record: string): string | null {
+function paramOf(record: string, key: string): string | null {
   const q = record.toLowerCase().indexOf('?')
   if (q < 0) return null
-  return new URLSearchParams(record.toLowerCase().slice(q + 1)).get('sp')
+  const values = new URLSearchParams(record.toLowerCase().slice(q + 1)).getAll(
+    key,
+  )
+  if (values.length <= 1) return values[0] ?? null
+  return values.join('\0')
+}
+
+/**
+ * A BIP-321 URI reduced to what it instructs a payer to do: the part before the
+ * `?` verbatim, then its parameters sorted. Ordering and a trailing separator
+ * are spelling, and the hosted service picks the spelling, not this package.
+ */
+function canonical(uri: string): string {
+  const lower = uri.toLowerCase()
+  const q = lower.indexOf('?')
+  if (q < 0) return lower
+  const params = [...new URLSearchParams(lower.slice(q + 1))].sort().map(String)
+  return [lower.slice(0, q), ...params].join('\n')
+}
+
+/**
+ * Does this record still carry what the user configured?
+ *
+ * In `hosted` mode this package is the record's only legitimate writer — the
+ * hosted service will not touch a name without the NIP-98 key that lives
+ * solely in this package's volume — so the whole record is compared against
+ * what publishing `address`/`offer` would produce. That catches an addition of
+ * any name, without having to name it first.
+ *
+ * `own` mode can't use that shortcut: the user's own DNS provider may
+ * legitimately carry payment instructions this package never asked for, so
+ * only the parameters it actually manages are compared, `null` included for
+ * an unset offer — an offer that appears without the user having set one is
+ * the same silent repoint this package exists to catch, one parameter over.
+ */
+function carries(
+  record: string,
+  mode: 'own' | 'hosted',
+  address: string,
+  offer?: string,
+): boolean {
+  if (mode === 'hosted')
+    return canonical(record) === canonical(recordValue(address, offer))
+  if (paramOf(record, 'sp') !== address) return false
+  return paramOf(record, 'lno') === (offer ? offer.toLowerCase() : null)
 }
 
 type Lookup = {
@@ -119,8 +170,10 @@ export async function checkPublishedRecord(): Promise<{
   )
     return { state: 'unknown', detail: i18n('No payment name configured.') }
 
+  const mode = cfg.mode
   const name = recordName(cfg.username, cfg.domain)
   const expected = cfg.address.toLowerCase()
+  const expectedOffer = cfg.offer?.toLowerCase()
 
   const results = await Promise.all(
     RESOLVERS.map((r) =>
@@ -144,7 +197,7 @@ export async function checkPublishedRecord(): Promise<{
   const good = answered.filter(
     (r) =>
       r.records.length === 1 &&
-      silentPaymentOf(r.records[0]) === expected &&
+      carries(r.records[0], mode, expected, expectedOffer) &&
       r.validated !== false,
   )
   if (good.length > 0)
@@ -166,7 +219,9 @@ export async function checkPublishedRecord(): Promise<{
     }
 
   const wrong = answered.find(
-    (r) => r.records.length === 1 && silentPaymentOf(r.records[0]) !== expected,
+    (r) =>
+      r.records.length === 1 &&
+      !carries(r.records[0], mode, expected, expectedOffer),
   )
   if (wrong)
     return {
