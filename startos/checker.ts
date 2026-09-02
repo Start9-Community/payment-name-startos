@@ -1,5 +1,9 @@
 import { i18n } from './i18n'
-import { paymentNameJson, recordName } from './fileModels/payment-name.json'
+import {
+  paymentNameJson,
+  recordName,
+  recordValue,
+} from './fileModels/payment-name.json'
 
 /** bech32m data part of a version-0 silent payment address: two 33-byte keys. */
 export const SP_ADDRESS = /^sp1[02-9ac-hj-np-z]{100,150}$/
@@ -72,12 +76,28 @@ function paramOf(record: string, key: string): string | null {
 }
 
 /**
- * Does this record still carry what the user configured? Both the address and
- * the offer are compared against exactly what was configured, `null` included
- * — an offer that appears without the user having set one is the same silent
- * repoint this package exists to catch, one parameter over.
+ * Does this record still carry what the user configured?
+ *
+ * In `hosted` mode this package is the record's only legitimate writer — the
+ * hosted service will not touch a name without the NIP-98 key that lives
+ * solely in this package's volume — so the whole record is compared exactly
+ * against what publishing `address`/`offer` would produce. That catches any
+ * added parameter, not only `sp` and `lno`, without having to name it first.
+ *
+ * `own` mode can't use that shortcut: the user's own DNS provider may
+ * legitimately carry payment instructions this package never asked for, so
+ * only the parameters it actually manages are compared, `null` included for
+ * an unset offer — an offer that appears without the user having set one is
+ * the same silent repoint this package exists to catch, one parameter over.
  */
-function carries(record: string, address: string, offer?: string): boolean {
+function carries(
+  record: string,
+  mode: 'own' | 'hosted',
+  address: string,
+  offer?: string,
+): boolean {
+  if (mode === 'hosted')
+    return record.toLowerCase() === recordValue(address, offer).toLowerCase()
   if (paramOf(record, 'sp') !== address) return false
   return paramOf(record, 'lno') === (offer ? offer.toLowerCase() : null)
 }
@@ -137,6 +157,7 @@ export async function checkPublishedRecord(): Promise<{
   )
     return { state: 'unknown', detail: i18n('No payment name configured.') }
 
+  const mode = cfg.mode
   const name = recordName(cfg.username, cfg.domain)
   const expected = cfg.address.toLowerCase()
   const expectedOffer = cfg.offer?.toLowerCase()
@@ -163,7 +184,7 @@ export async function checkPublishedRecord(): Promise<{
   const good = answered.filter(
     (r) =>
       r.records.length === 1 &&
-      carries(r.records[0], expected, expectedOffer) &&
+      carries(r.records[0], mode, expected, expectedOffer) &&
       r.validated !== false,
   )
   if (good.length > 0)
@@ -186,7 +207,8 @@ export async function checkPublishedRecord(): Promise<{
 
   const wrong = answered.find(
     (r) =>
-      r.records.length === 1 && !carries(r.records[0], expected, expectedOffer),
+      r.records.length === 1 &&
+      !carries(r.records[0], mode, expected, expectedOffer),
   )
   if (wrong)
     return {
