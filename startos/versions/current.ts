@@ -1,18 +1,18 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '0.2.0:4',
+  version: '0.2.0:3',
   releaseNotes: {
     en_US:
-      'Hosted-mode watchdog now compares the whole published record, not just the sp and lno parameters, so a payment instruction added under any other name is caught too. Own-domain mode is unchanged: it still compares only what this package manages, since your own DNS provider may legitimately carry instructions it does not.',
+      "Adds an optional BOLT 12 Lightning offer, so one payment name can be paid over Lightning or on-chain and the sender's wallet decides which. The watchdog covers the offer as well, and on a hosted name it covers the whole published record. New icon.",
     es_ES:
-      'El vigilante en modo alojado ahora compara el registro publicado completo, no solo los parámetros sp y lno, así que una instrucción de pago añadida bajo cualquier otro nombre también se detecta. El modo de dominio propio no cambia: sigue comparando solo lo que este paquete gestiona, ya que tu propio proveedor de DNS puede llevar legítimamente instrucciones que no le corresponden.',
+      'Añade una oferta Lightning BOLT 12 opcional, para que un mismo nombre de pago pueda cobrarse por Lightning o en cadena y el monedero de quien paga elija la vía. El vigilante cubre también la oferta y, en un nombre alojado, el registro publicado completo. Icono nuevo.',
     de_DE:
-      'Die Überwachung im gehosteten Modus vergleicht jetzt den gesamten veröffentlichten Datensatz, nicht nur die Parameter sp und lno, sodass eine unter einem anderen Namen hinzugefügte Zahlungsanweisung ebenfalls erkannt wird. Der Modus für die eigene Domain bleibt unverändert: Er vergleicht weiterhin nur das, was dieses Paket verwaltet, da dein eigener DNS-Anbieter rechtmäßig Anweisungen tragen kann, die es nicht verwaltet.',
+      'Ergänzt ein optionales BOLT-12-Lightning-Angebot, sodass derselbe Zahlungsname per Lightning oder On-Chain bezahlt werden kann und die Wallet des Zahlenden entscheidet. Die Überwachung erfasst auch das Angebot und bei einem gehosteten Namen den gesamten veröffentlichten Eintrag. Neues Symbol.',
     pl_PL:
-      'Nadzór w trybie hostowanym porównuje teraz cały opublikowany rekord, a nie tylko parametry sp i lno, więc instrukcja płatności dodana pod dowolną inną nazwą również zostanie wykryta. Tryb własnej domeny pozostaje bez zmian: nadal porównuje tylko to, czym zarządza ten pakiet, ponieważ twój własny dostawca DNS może zgodnie z prawem przenosić instrukcje, którymi ten pakiet nie zarządza.',
+      'Dodaje opcjonalną ofertę Lightning BOLT 12, dzięki czemu jedna nazwa płatności przyjmuje płatności przez Lightning albo on-chain, a portfel płacącego wybiera drogę. Nadzór obejmuje także ofertę, a przy nazwie hostowanej — cały opublikowany rekord. Nowa ikona.',
     fr_FR:
-      "La surveillance en mode hébergé compare désormais l'intégralité de l'enregistrement publié, pas seulement les paramètres sp et lno, si bien qu'une instruction de paiement ajoutée sous un autre nom est également détectée. Le mode domaine propre reste inchangé : il continue de ne comparer que ce que ce paquet gère, car votre propre fournisseur DNS peut légitimement porter des instructions qu'il ne gère pas.",
+      "Ajoute une offre Lightning BOLT 12 facultative, afin qu'un même nom de paiement puisse être payé par Lightning ou on-chain, le portefeuille du payeur choisissant la voie. La surveillance couvre aussi l'offre et, pour un nom hébergé, l'intégralité de l'enregistrement publié. Nouvelle icône.",
   },
   migrations: {
     up: async () => {},

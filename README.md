@@ -152,13 +152,13 @@ The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')`. There
 
 1. **It cannot publish a record on a domain you control.** In `own` mode it produces the record and the user adds it at their DNS provider; there is no registrar or nameserver integration.
 2. **It does not verify the DNSSEC chain itself.** It asks two public resolvers whether the answer validated. That is adequate for noticing a change and is _not_ what a paying wallet does, which validates the chain independently as BIP-353 requires.
-3. **Hosted names depend on a third party.** `silentpayments.net` controls that zone and could repoint a name; the watchdog exists to make that visible, not to prevent it.
+3. **Hosted names depend on a third party — the operator of `silentpayments.net`, who is also this package's author.** That's a real dependency, not a decorative one: they control the zone and could repoint a name, which is exactly what the watchdog exists to make visible rather than prevent. `silentpayments.net`'s source is being made fully public, so that claim will be checkable rather than taken on trust.
 4. **A hosted name whose key is lost is gone.** There is no recovery flow and no support channel in the package — pick another name.
 5. **It cannot find your payments.** Detecting silent payments needs a scanning backend, which this package deliberately does not provide or require.
 6. **It holds no keys and moves no money.** The silent payment address must be copied in from a wallet; nothing here can derive it.
 7. **Only mainnet addresses are accepted.** The validator requires the `sp1` human-readable part.
 8. **A BOLT 12 offer is optional and the address is not.** Offers carry no checksum, so a swapped character is publishable and undetectable. `offer.ts` checks the prefix, the bech32 alphabet, a clean 5-bit unpacking, a TLV stream that parses and ends exactly, and the presence of `offer_issuer_id` or `offer_paths`. That catches truncation, a stray character and a BOLT 11 paste; it cannot catch a substitution, and nothing can.
-9. **The watchdog compares `lno` against exactly what was configured, absence included.** A Lightning offer that appears without the user having set one is the same quiet repoint this package exists to catch, one parameter over.
+9. **The watchdog compares against exactly what was configured.** On a hosted name the whole published record is compared, so a payment instruction added under any name is caught. On a domain the user controls only `sp` and `lno` are compared, absence included — that user's own DNS provider may legitimately carry instructions this package never asked for, and an exact match would report those as a repoint.
 10. **No interfaces.** There is nothing to open, and no address to copy from the service page.
 
 ---

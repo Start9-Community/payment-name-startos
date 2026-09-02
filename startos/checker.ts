@@ -76,13 +76,26 @@ function paramOf(record: string, key: string): string | null {
 }
 
 /**
+ * A BIP-321 URI reduced to what it instructs a payer to do: the part before the
+ * `?` verbatim, then its parameters sorted. Ordering and a trailing separator
+ * are spelling, and the hosted service picks the spelling, not this package.
+ */
+function canonical(uri: string): string {
+  const lower = uri.toLowerCase()
+  const q = lower.indexOf('?')
+  if (q < 0) return lower
+  const params = [...new URLSearchParams(lower.slice(q + 1))].sort().map(String)
+  return [lower.slice(0, q), ...params].join('\n')
+}
+
+/**
  * Does this record still carry what the user configured?
  *
  * In `hosted` mode this package is the record's only legitimate writer — the
  * hosted service will not touch a name without the NIP-98 key that lives
- * solely in this package's volume — so the whole record is compared exactly
- * against what publishing `address`/`offer` would produce. That catches any
- * added parameter, not only `sp` and `lno`, without having to name it first.
+ * solely in this package's volume — so the whole record is compared against
+ * what publishing `address`/`offer` would produce. That catches an addition of
+ * any name, without having to name it first.
  *
  * `own` mode can't use that shortcut: the user's own DNS provider may
  * legitimately carry payment instructions this package never asked for, so
@@ -97,7 +110,7 @@ function carries(
   offer?: string,
 ): boolean {
   if (mode === 'hosted')
-    return record.toLowerCase() === recordValue(address, offer).toLowerCase()
+    return canonical(record) === canonical(recordValue(address, offer))
   if (paramOf(record, 'sp') !== address) return false
   return paramOf(record, 'lno') === (offer ? offer.toLowerCase() : null)
 }
