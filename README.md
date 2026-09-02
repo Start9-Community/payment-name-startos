@@ -152,7 +152,7 @@ The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')`. There
 
 1. **It cannot publish a record on a domain you control.** In `own` mode it produces the record and the user adds it at their DNS provider; there is no registrar or nameserver integration.
 2. **It does not verify the DNSSEC chain itself.** It asks two public resolvers whether the answer validated. That is adequate for noticing a change and is _not_ what a paying wallet does, which validates the chain independently as BIP-353 requires.
-3. **Hosted names depend on a third party.** `silentpayments.net` controls that zone and could repoint a name; the watchdog exists to make that visible, not to prevent it.
+3. **Hosted names depend on a third party — the operator of `silentpayments.net`, who is also this package's author.** That's a real dependency, not a decorative one: they control the zone and could repoint a name, which is exactly what the watchdog exists to make visible rather than prevent. `silentpayments.net`'s source is being made fully public, so that claim will be checkable rather than taken on trust.
 4. **A hosted name whose key is lost is gone.** There is no recovery flow and no support channel in the package — pick another name.
 5. **It cannot find your payments.** Detecting silent payments needs a scanning backend, which this package deliberately does not provide or require.
 6. **It holds no keys and moves no money.** The silent payment address must be copied in from a wallet; nothing here can derive it.
