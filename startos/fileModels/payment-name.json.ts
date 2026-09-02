@@ -20,15 +20,7 @@ export const shape = z.object({
   mode: z.enum(['off', 'own', 'hosted']).catch('off'),
   /** bech32m, hrp `sp`, mainnet. Validated in the configure action. */
   address: z.string().optional().catch(undefined),
-  /**
-   * An optional BOLT 12 offer, so one name pays over Lightning or on-chain and
-   * the sender's wallet decides which.
-   *
-   * Optional, and the address is not, because a BOLT 12 offer carries no
-   * checksum: a swapped character is publishable and nothing can detect it.
-   * The address is bech32m and a typo in it fails immediately, so it stays the
-   * leg that always works.
-   */
+  /** An optional BOLT 12 offer, so one name pays over Lightning or on-chain and the sender's wallet decides which. Validated in offer.ts. */
   offer: z.string().optional().catch(undefined),
   /** The local part, e.g. `alice` in alice@example.com. */
   username: z.string().optional().catch(undefined),

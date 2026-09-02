@@ -158,8 +158,8 @@ The `main` volume is copied wholesale — `sdk.Backups.ofVolumes('main')`. There
 6. **It holds no keys and moves no money.** The silent payment address must be copied in from a wallet; nothing here can derive it.
 7. **Only mainnet addresses are accepted.** The validator requires the `sp1` human-readable part.
 8. **A BOLT 12 offer is optional and the address is not.** Offers carry no checksum, so a swapped character is publishable and undetectable. `offer.ts` checks the prefix, the bech32 alphabet, a clean 5-bit unpacking, a TLV stream that parses and ends exactly, and the presence of `offer_issuer_id` or `offer_paths`. That catches truncation, a stray character and a BOLT 11 paste; it cannot catch a substitution, and nothing can.
-9. **The watchdog compares `lno` only when the user set one.** Comparing an offer the user never configured would report anyone who added Lightning by another route as repointed. Ignoring it when they did configure one would let the Lightning half be stripped in silence, which is the same quiet repoint this package exists to catch.
-8. **No interfaces.** There is nothing to open, and no address to copy from the service page.
+9. **The watchdog compares `lno` against exactly what was configured, absence included.** A Lightning offer that appears without the user having set one is the same quiet repoint this package exists to catch, one parameter over.
+10. **No interfaces.** There is nothing to open, and no address to copy from the service page.
 
 ---
 
@@ -176,7 +176,7 @@ subcontainers:
 volumes:
   main: /data
 file_models:
-  - /data/payment-name.json # mode, address, name, domain, watchdog toggle
+  - /data/payment-name.json # mode, address, offer, name, domain, watchdog toggle
   - /data/hosted-key.json # NIP-98 signing key for the hosted domain; irreplaceable
 startos_managed_env_vars: []
 dependencies: []

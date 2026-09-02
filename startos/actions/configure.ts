@@ -42,12 +42,7 @@ const address = Value.text({
   ],
 })
 
-/**
- * Optional, unlike the address, because a BOLT 12 offer has no checksum: a
- * swapped character is publishable and undetectable. No `patterns` entry for
- * the same reason, since a regex would promise a check it cannot make. The
- * real validation is a TLV walk in offer.ts.
- */
+/** No `patterns` entry: a regex can't validate a BOLT 12 offer. The real check is the TLV walk in offer.ts. */
 const offer = Value.text({
   name: i18n('Lightning offer'),
   description: i18n(

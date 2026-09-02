@@ -54,32 +54,32 @@ const RESOLVERS = [
 ]
 
 /**
- * The `sp` parameter of a BIP-321 URI. BIP-353 allows a name to carry several
- * payment instructions in one record, so comparing the whole string would
- * report a user who added a Lightning offer as having been repointed.
+ * A named parameter of a BIP-321 URI's query string. BIP-353 allows a name to
+ * carry several payment instructions in one record, so comparing the whole
+ * string would report a user who added a second instruction as repointed.
+ * More than one occurrence of the same key is never a legitimate value —
+ * `\0` cannot appear in a real address or offer — so it can only ever fail a
+ * comparison, whether the caller expected a specific value or none at all.
  */
 function paramOf(record: string, key: string): string | null {
   const q = record.toLowerCase().indexOf('?')
   if (q < 0) return null
-  return new URLSearchParams(record.toLowerCase().slice(q + 1)).get(key)
+  const values = new URLSearchParams(record.toLowerCase().slice(q + 1)).getAll(
+    key,
+  )
+  if (values.length <= 1) return values[0] ?? null
+  return values.join('\0')
 }
 
-const silentPaymentOf = (record: string) => paramOf(record, 'sp')
-
 /**
- * Does this record still carry what the user configured?
- *
- * The address is always compared. The BOLT 12 offer is compared ONLY when the
- * user configured one, which is the whole subtlety: comparing an offer the
- * user never set would report anyone who added a Lightning offer by some other
- * route as having been repointed. Ignoring it when they did set one would let
- * their Lightning half be stripped in silence, which is the same silent
+ * Does this record still carry what the user configured? Both the address and
+ * the offer are compared against exactly what was configured, `null` included
+ * — an offer that appears without the user having set one is the same silent
  * repoint this package exists to catch, one parameter over.
  */
 function carries(record: string, address: string, offer?: string): boolean {
-  if (silentPaymentOf(record) !== address) return false
-  if (!offer) return true
-  return paramOf(record, 'lno') === offer.toLowerCase()
+  if (paramOf(record, 'sp') !== address) return false
+  return paramOf(record, 'lno') === (offer ? offer.toLowerCase() : null)
 }
 
 type Lookup = {

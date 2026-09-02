@@ -5,7 +5,7 @@
 
     Drawn as one solid shape with the glyph removed rather than an outline on a
     background: an outlined mark silts up below about 40px, and the marketplace
-    shows this at 24. Checked at 190, 64, 40 and 24 before it was committed.
+    shows this at 24.
   -->
   <defs>
     <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
