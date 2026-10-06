@@ -12,7 +12,7 @@ import { sdk } from '../sdk'
  * Generated on first use and never sent anywhere: only signatures made with it
  * leave this box.
  */
-export const shape = z.object({
+export const shape = z.looseObject({
   secretKey: z.string().optional().catch(undefined),
 })
 

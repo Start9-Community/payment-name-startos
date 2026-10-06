@@ -100,7 +100,7 @@ const inputSpec = InputSpec.of({
   publish: Value.union({
     name: i18n('Payment name'),
     description: i18n(
-      'Publish a human-readable payment name, like alice@example.com, that resolves to your silent payment address. Anyone can then pay you by typing that name into their wallet.',
+      'Publish a human-readable payment name, like alice@example.com, that resolves to your silent payment address. Anyone can then pay you by typing that name into their wallet.\n- None: nothing is published, and a name this server holds on silentpayments.net is released.\n- On a domain I control: you add the DNS record this action shows you, and only you can change where the name points.\n- Hosted for me on silentpayments.net: the name is published for you, and whoever runs silentpayments.net could point it somewhere else.',
     ),
     default: 'off',
     variants: Variants.of({

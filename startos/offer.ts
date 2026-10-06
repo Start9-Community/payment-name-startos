@@ -104,7 +104,8 @@ function tlvTypes(buf: Uint8Array): number[] | null {
 }
 
 export type OfferResult =
-  { ok: true; offer: string | null } | { ok: false; reason: string }
+  | { ok: true; offer: string | null }
+  | { ok: false; reason: string }
 
 /** @param input what the user pasted, or nothing */
 export function validateOffer(input: string | null | undefined): OfferResult {

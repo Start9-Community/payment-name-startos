@@ -18,27 +18,27 @@ Freshly scaffolded? Work the
 guide page, not a file in this repo — read it, don't copy it in.
 
 Keep `README.md` (technical reference for an AI support or administering agent) and
-`instructions.md` (end-user docs) in sync with your changes.
+`instructions.md` (end-user docs) in sync with your changes. This file restates neither:
+whoever changes the package has both, so it carries only what they don't — repo mechanics,
+a change that looks right and is not, where the next thing gets added, a naming trap, a
+build or test invocation particular to this repo.
 
-**Bugs and feature requests are GitHub issues on this repo** — file them as you find them.
+**Fix a defect you spot rather than reporting it** — you have the package open and the
+context to be sure. File **a GitHub issue on this repo** only when the call isn't yours to
+make: you can't pin the cause down, two defensible fixes exist, or it's too large to ride on
+the work in hand. An open issue is a report, not a queue — implement one when you're asked
+to or when it's labelled `Approved`, then close it with `Closes #<n>`.
+
 Don't record work in the repo instead: no `TODO.md`, no `NOTES.md`, no `PLAN.md`. What you
 verified, tried, and decided belongs in the commit message and the PR body.
 
 ## This repo
 
-- **`packageRepo` is this fork** (`Start9-Community/payment-name-startos`); `upstreamRepo` is the
-  developer's own repo, which is where the software itself lives. Packaging changes land here.
-- **The default branch is `main`.** `build.yml`'s PR target and `tagAndRelease.yml`'s push trigger
-  both name it; a template that still says `master` gives this repo CI that silently never runs.
-- **Resolve the published record over DNS-over-HTTPS, never the container resolver.** StartOS
-  forwards DNS without `RRSIG` or the `AD` flag, so over port 53 a DNSSEC-signed answer is
-  indistinguishable from an unsigned one — and BIP-353 turns entirely on that distinction. Node's
-  `dns.resolveTxt` looks like a simplification and silently destroys the check.
-- **Report a problem only when every resolver that answered agrees.** Turning DNSSEC on flips a zone
-  from unsigned to signed and resolvers holding the old state hard-fail until their caches expire;
-  a single-resolver check calls a healthy name compromised, and a check that cries wolf stops being
-  believed.
-- **The container executes nothing.** The daemon is a `sleep infinity` whose only job is to give the
-  health check something to hang off; adding a process to the image will not run it.
-- **Write the hosted settings only after the claim succeeds.** Saving first leaves the health check
-  watching a name that was never claimed, and the pre-filled form offering it back as the user's own.
+- **The default branch is `main`.** Every workflow's `branches:` names it; one that says `master`
+  never runs here.
+- **Resolve the published record over DNS-over-HTTPS, never the container resolver** — `dns.resolveTxt`
+  cannot tell a DNSSEC-signed answer from an unsigned one, and BIP-353 turns on that distinction.
+- **Report a problem only when every resolver that answered agrees** — a single-resolver check calls
+  a name compromised while caches catch up after DNSSEC is turned on.
+- **Write the hosted settings only after the claim succeeds** — saving first leaves the watchdog and
+  the pre-filled form treating an unclaimed name as the user's own.

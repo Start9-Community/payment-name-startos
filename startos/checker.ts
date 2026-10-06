@@ -177,11 +177,13 @@ export async function checkPublishedRecord(): Promise<{
 
   const results = await Promise.all(
     RESOLVERS.map((r) =>
-      lookup(r, name).catch((): Lookup => ({
-        ok: false,
-        records: [],
-        validated: undefined,
-      })),
+      lookup(r, name).catch(
+        (): Lookup => ({
+          ok: false,
+          records: [],
+          validated: undefined,
+        }),
+      ),
     ),
   )
 

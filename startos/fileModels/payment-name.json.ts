@@ -16,7 +16,7 @@ import { sdk } from '../sdk'
  *   not help: it proves the domain owner said something, not that the user
  *   agreed. This is why `checkRecord` exists.
  */
-export const shape = z.object({
+export const shape = z.looseObject({
   mode: z.enum(['off', 'own', 'hosted']).catch('off'),
   /** bech32m, hrp `sp`, mainnet. Validated in the configure action. */
   address: z.string().optional().catch(undefined),
