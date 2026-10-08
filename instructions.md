@@ -62,7 +62,7 @@ A message about the record not being found yet, or about no resolver being reach
 
 ### Changing or stopping
 
-Run **Payment Name** again to point the name at a different address, rename it, or set it to _None_ to stop publishing.
+Run **Payment Name** again to point the name at a different address, rename it, or set it to _None_ to stop monitoring. On your own domain, delete the DNS TXT record at your provider to stop publishing; choosing _None_ does not remove it.
 
 If you are on a hosted name, switching to _None_, switching to your own domain, or renaming gives the old hosted name back automatically. If that cannot be done at the time — the service is unreachable, say — the result message tells you, and the old name stays claimed.
 

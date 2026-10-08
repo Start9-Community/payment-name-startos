@@ -27,7 +27,7 @@ const dict = {
 
   // actions/configure.ts
   'Payment name': 18,
-  'Publish a human-readable payment name, like alice@example.com, that resolves to your silent payment address. Anyone can then pay you by typing that name into their wallet.': 19,
+  'Publish a human-readable payment name, like alice@example.com, that resolves to your silent payment address. Anyone can then pay you by typing that name into their wallet.\n- None: monitoring stops, and this server attempts to release its current name on silentpayments.net. On your own domain, delete the DNS record yourself to stop publishing.\n- On a domain I control: you add the DNS record this action shows you, and only you can change where the name points.\n- Hosted for me on silentpayments.net: the name is published for you, and whoever runs silentpayments.net could point it somewhere else.': 19,
   None: 20,
   'On a domain I control': 21,
   'Hosted for me on silentpayments.net': 22,
