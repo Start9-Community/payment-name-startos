@@ -109,7 +109,9 @@ The form is a union on where the name is published, so the fields below the sele
 - **What happens next:** the service restarts so the watchdog re-checks against the new values rather than serving a cached verdict about the old ones.
 - **Outputs:** in `own` mode, the payment name plus the exact TXT record name and value to publish. In `hosted` mode, the payment name, already live.
 
-**Switching away from a hosted name releases it.** Choosing `off`, choosing `own`, or renaming while in `hosted` mode sends a delete to `silentpayments.net` first, so the name does not sit claimed on a domain this server no longer publishes to. If that call fails the local change still applies and the result message says the release did not happen — the name is then stranded until the same key can reach the service again.
+**Choosing `None` disables monitoring, not an own-domain DNS record.** Delete that TXT record at the DNS provider to stop publishing.
+
+**Switching away from a hosted name attempts to release it.** Choosing `off`, choosing `own`, or renaming while in `hosted` mode sends a delete to `silentpayments.net` first, so the name does not sit claimed on a domain this server no longer publishes to. If that call fails the local change still applies and the result message says the release did not happen — the name is then stranded until the same key can reach the service again.
 
 **A failed hosted claim writes nothing.** The settings are saved only after the service confirms the name, so a claim that fails leaves the package exactly as it was rather than watching a name the user never got.
 
