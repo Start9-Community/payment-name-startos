@@ -32,6 +32,3 @@ Three things here do track something outside the repo.
 
 1. Edit the pin — `package.json` for either npm dependency (then `npm install` to refresh
    `package-lock.json`), or the `FROM` line in `Dockerfile` for the base image.
-2. Bump the packaging revision in `startos/versions/current.ts` and write `releaseNotes` for every
-   locale.
-3. `npx tsc --noEmit`, then `make x86` and install on a dev box before opening the PR.
