@@ -261,6 +261,7 @@ export const configure = sdk.Action.withInput(
               copyable: true,
               qr: true,
               masked: false,
+              launchable: false,
             },
             {
               name: i18n('Record name'),
@@ -270,6 +271,7 @@ export const configure = sdk.Action.withInput(
               copyable: true,
               qr: false,
               masked: false,
+              launchable: false,
             },
             {
               name: i18n('Record value'),
@@ -279,6 +281,7 @@ export const configure = sdk.Action.withInput(
               copyable: true,
               qr: false,
               masked: false,
+              launchable: false,
             },
           ],
         },
@@ -351,6 +354,7 @@ export const configure = sdk.Action.withInput(
             copyable: true,
             qr: true,
             masked: false,
+            launchable: false,
           },
         ],
       },
