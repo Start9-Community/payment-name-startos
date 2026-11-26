@@ -1,8 +1,8 @@
 {
   "name": "payment-name-startos",
   "dependencies": {
-    "@start9labs/start-sdk": "3.0.3",
-    "nostr-tools": "2.25.0"
+    "@start9labs/start-sdk": "4.1.0",
+    "nostr-tools": "2.26.1"
   },
   "overrides": {
     "@start9labs/start-sdk": "$@start9labs/start-sdk"

@@ -1,18 +1,18 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '0.2.0:4',
+  version: '0.2.0:5',
   releaseNotes: {
     en_US:
-      'Updated to start-sdk 3.0.3; requires StartOS 0.4.0.2 or later. The Payment name field in the Payment Name action explains what each of its choices does.',
+      'Fixes the Payment Name health check using more memory the longer the service ran.',
     es_ES:
-      'Actualizado a start-sdk 3.0.3; requiere StartOS 0.4.0.2 o posterior. El campo Nombre de pago de la acción Payment Name explica qué hace cada una de sus opciones.',
+      'Corrige que la comprobación de estado Payment Name usara más memoria cuanto más tiempo llevaba en marcha el servicio.',
     de_DE:
-      'Auf start-sdk 3.0.3 aktualisiert; erfordert StartOS 0.4.0.2 oder neuer. Das Feld „Zahlungsname“ in der Aktion „Payment Name“ erklärt, was jede seiner Optionen bewirkt.',
+      'Behebt, dass die Zustandsprüfung „Payment Name“ umso mehr Speicher belegte, je länger der Dienst lief.',
     pl_PL:
-      'Zaktualizowano do start-sdk 3.0.3; wymaga StartOS 0.4.0.2 lub nowszego. Pole „Nazwa płatności” w akcji „Payment Name” wyjaśnia, co robi każda z jego opcji.',
+      'Naprawia kontrolę stanu Payment Name, która zużywała tym więcej pamięci, im dłużej działała usługa.',
     fr_FR:
-      "Mise à jour vers start-sdk 3.0.3 ; nécessite StartOS 0.4.0.2 ou une version ultérieure. Le champ Nom de paiement de l'action Payment Name explique ce que fait chacun de ses choix.",
+      "Corrige la vérification d'état Payment Name, qui utilisait d'autant plus de mémoire que le service tournait longtemps.",
   },
   migrations: {
     up: async () => {},
